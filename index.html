@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moontech Client Profile</title>
+
+<!-- ============================================================= -->
+<!--  DATA SOURCE CONFIG  —  the only thing you edit to go live.    -->
+<!--                                                                 -->
+<!--  This page reads a Google Sheet directly. A static page can    -->
+<!--  only read a sheet that is exposed as CSV. Two ways:           -->
+<!--                                                                 -->
+<!--  (A) File > Share > Publish to web > (pick the tab) > CSV.     -->
+<!--      Paste that URL below. Best for "live" — it auto-updates.  -->
+<!--                                                                 -->
+<!--  (B) Or set the sheet to "Anyone with the link (Viewer)" and   -->
+<!--      use the gviz endpoint below (fill in FILE_ID + GID).      -->
+<!--                                                                 -->
+<!--  Point it at the RECEIVABLES sheet (the tab whose columns      -->
+<!--  match: Invoice, Client Name, ... Todays Date), NOT the model. -->
+<!-- ============================================================= -->
+<script>
+const CONFIG = {
+  // (A) Paste a "Publish to web -> CSV" link here, OR
+  SHEET_CSV_URL: "",
+
+  // (B) ...fill these two and leave SHEET_CSV_URL empty to use gviz:
+  FILE_ID: "",          // e.g. "1_0NE-izVl7V4VzdTp9qdjhx24X9r4c7TeLPeWGrsqyE"
+  GID:     "",          // the tab's gid (number after gid= in the sheet URL)
+
+  AED_PER_USD: 3.6725,  // ARPA conversion. Change here if the peg ever moves.
+
+  /* Brand display names. The brand is normally taken from the text after the
+     last dash in the trade-licence name ("… Agencies - Jetour MT" -> "Jetour").
+     Anything that doesn't follow that pattern can be forced here. Match on any
+     distinctive fragment of the Client Name (case-insensitive). Grouping is
+     unaffected — this only changes the label shown on screen. */
+  BRAND_OVERRIDES: {
+    "elite cars": "Jetour"
+  },
+
+  /* ARPA universe: "roas" = only clients with a paid ROAS milestone (matches
+     the Unit Economics model). "all" = every paid client, including CPL /
+     influencer campaigns. Switchable on screen too. */
+  ARPA_UNIVERSE: "roas",
+  ACQUISITION_START: "2025-10-01", // Paid-brands "since" date
+  CONVERSION_START:  "2026-02-01", // Sales-conversion "since" date
+  REFRESH_SECONDS: 0    // set e.g. 300 to auto re-fetch every 5 min; 0 = off
+};
+function gvizUrl(){ return CONFIG.FILE_ID && CONFIG.GID
+  ? `https://docs.google.com/spreadsheets/d/${CONFIG.FILE_ID}/gviz/tq?tqx=out:csv&gid=${CONFIG.GID}` : ""; }
+function activeUrl(){ return CONFIG.SHEET_CSV_URL || gvizUrl(); }
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f5fb; --panel:#ffffff; --ink:#1e2138; --ink-soft:#5a5f7e; --ink-faint:#9096b4;
+  --line:#eceef6; --line-strong:#e0e3f0;
+  --indigo:#4f46e5; --indigo-soft:#eef0ff; --indigo-ink:#3b32c4;
+  --green:#16a34a; --green-soft:#e9f7ef; --amber:#d97706; --amber-soft:#fdf3e3; --red:#dc2626; --red-soft:#fdecec;
+  /* pastel tile tints */
+  --t-mint:#ecfdf5; --t-pink:#fdf2f8; --t-lilac:#f4f2ff; --t-cream:#fffbeb; --t-sky:#eff6ff; --t-peach:#fff7ed;
+  --shadow:0 1px 2px rgba(30,33,56,.04), 0 8px 24px rgba(30,33,56,.05);
+  --shadow-lift:0 2px 6px rgba(30,33,56,.06), 0 18px 40px rgba(79,70,229,.10);
+  --radius:18px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-weight:400; line-height:1.45; -webkit-font-smoothing:antialiased;
+  font-feature-settings:"tnum" 1, "cv05" 1;
+}
+.num{font-variant-numeric:tabular-nums; font-weight:400}
+a{color:inherit}
+.wrap{max-width:1720px; margin:0 auto; padding:22px 26px 60px}
+
+/* ---------- header ---------- */
+header.top{
+  display:flex; align-items:center; gap:22px; flex-wrap:wrap;
+  padding:16px 22px; border:none; color:#fff;
+  background:linear-gradient(120deg,#1b1650 0%, #2c2490 48%, #4f46e5 100%);
+  border-radius:var(--radius); box-shadow:0 10px 30px rgba(43,36,144,.28); position:sticky; top:14px; z-index:40;
+  overflow:hidden; position:sticky;
+}
+header.top::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:.7;
+  background-image:radial-gradient(1.5px 1.5px at 12% 30%, rgba(255,255,255,.8) 50%, transparent 51%),
+    radial-gradient(1px 1px at 28% 70%, rgba(255,255,255,.55) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 46% 22%, rgba(255,255,255,.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 62% 62%, rgba(255,255,255,.5) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 82% 34%, rgba(255,255,255,.6) 50%, transparent 51%),
+    radial-gradient(1px 1px at 93% 74%, rgba(255,255,255,.45) 50%, transparent 51%);}
+header.top>*{position:relative}
+.brand{display:flex; align-items:center; gap:13px; margin-right:auto}
+.moon{width:38px; height:38px; flex:none; border-radius:50%;
+  background:radial-gradient(circle at 32% 32%, #fffdf2 0%, #f5ecca 55%, #d8c99b 100%);
+  box-shadow:inset -7px -7px 12px rgba(120,100,40,.35), 0 0 22px rgba(255,246,200,.45); position:relative;}
+.moon::after{content:""; position:absolute; width:7px; height:7px; border-radius:50%; left:9px; top:17px;
+  background:rgba(160,140,80,.25); box-shadow:12px -9px 0 -1px rgba(160,140,80,.22), 6px 6px 0 -2px rgba(160,140,80,.18);}
+.brand h1{font-family:"Instrument Serif",Georgia,serif; font-weight:400; font-size:27px;
+  letter-spacing:.2px; margin:0; line-height:1; color:#fff}
+.brand .sub{font-size:10.5px; letter-spacing:2.4px; color:rgba(255,255,255,.55); text-transform:uppercase; margin-top:4px}
+header.top .ctl label{color:rgba(255,255,255,.6)}
+header.top .btn{background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.28); color:#fff}
+header.top .btn:hover{background:rgba(255,255,255,.2); border-color:#fff; color:#fff}
+.controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.ctl{display:flex; flex-direction:column; gap:4px}
+.ctl label{font-size:9.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-faint); padding-left:2px}
+.field{
+  height:38px; border:1px solid var(--line-strong); border-radius:11px; background:#fbfbfe;
+  padding:0 12px; font:inherit; font-size:13.5px; color:var(--ink); min-width:120px; transition:.15s;
+}
+.field:focus{outline:none; border-color:var(--indigo); background:#fff; box-shadow:0 0 0 3px var(--indigo-soft)}
+input.field::placeholder{color:var(--ink-faint)}
+.search-wrap{position:relative}
+.search-wrap .field{min-width:190px; padding-left:32px}
+.search-wrap svg{position:absolute; left:10px; top:11px; width:15px; height:15px; stroke:var(--ink-faint)}
+.typeahead{position:absolute; top:42px; left:0; right:0; background:#fff; border:1px solid var(--line-strong);
+  border-radius:12px; box-shadow:var(--shadow-lift); z-index:60; max-height:280px; overflow:auto; display:none}
+.typeahead.open{display:block}
+.typeahead .item{padding:9px 12px; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; gap:10px}
+.typeahead .item:hover{background:var(--indigo-soft)}
+.typeahead .item small{color:var(--ink-faint)}
+.btn{height:38px; border:1px solid var(--line-strong); background:#fff; border-radius:11px; padding:0 14px;
+  font:inherit; font-size:13px; color:var(--ink-soft); cursor:pointer; transition:.15s; white-space:nowrap}
+.btn:hover{border-color:var(--indigo); color:var(--indigo-ink)}
+.btn.solid{background:var(--indigo); border-color:var(--indigo); color:#fff}
+.btn.solid:hover{background:var(--indigo-ink)}
+
+/* ---------- data status bar ---------- */
+.dbar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:14px 0 4px; padding:11px 16px;
+  border:1px solid var(--line); background:var(--panel); border-radius:14px; box-shadow:var(--shadow); font-size:12.5px; color:var(--ink-soft)}
+.dot{width:8px; height:8px; border-radius:50%; flex:none}
+.dot.live{background:var(--green)} .dot.sample{background:var(--amber)} .dot.err{background:var(--red)}
+.dbar .grow{margin-left:auto; display:flex; gap:9px; align-items:center}
+.dbar input[type=file]{display:none}
+
+/* ---------- KPI tiles ---------- */
+.tiles{display:grid; grid-template-columns:repeat(7,1fr); gap:14px; margin-top:16px}
+.tile{border-radius:var(--radius); border:1px solid var(--line); padding:18px 18px 16px; box-shadow:var(--shadow);
+  transition:transform .18s ease, box-shadow .18s ease; position:relative; overflow:hidden; min-height:132px; min-width:0}
+.tile:hover{transform:translateY(-3px); box-shadow:var(--shadow-lift)}
+.tile .h{font-size:9.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-soft); display:flex; align-items:center; gap:6px}
+.tile .v{font-size:31px; margin-top:12px; letter-spacing:-.5px; line-height:1}
+.tile .cur{font-size:14px; color:var(--ink-faint); margin-right:2px}
+.tile .s{font-size:11.5px; color:var(--ink-soft); margin-top:9px; display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.chip{font-size:11px; padding:2px 7px; border-radius:20px; background:#fff; border:1px solid var(--line-strong)}
+.chip.up{color:var(--green); border-color:#bfe6cd} .chip.down{color:var(--red); border-color:#f2c4c4}
+.tile.mint{background:var(--t-mint)} .tile.pink{background:var(--t-pink)} .tile.lilac{background:var(--t-lilac)}
+.tile.cream{background:var(--t-cream)} .tile.sky{background:var(--t-sky)} .tile.peach{background:var(--t-peach)}
+.tile.rose{background:#fef1f4}
+.leads-input{width:64px; height:26px; border:1px solid var(--line-strong); border-radius:8px; background:#fff;
+  font:inherit; font-size:12px; text-align:center; padding:0 4px; color:var(--ink)}
+
+/* ---------- panels ---------- */
+.grid3{display:grid; grid-template-columns:1.5fr .85fr 1fr; gap:16px; margin-top:16px}
+.grid2b{display:grid; grid-template-columns:1.15fr 1fr; gap:16px; margin-top:16px}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; min-width:0}
+.panel h2{font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; font-weight:500}
+.panel .lede{font-size:12px; color:var(--ink-faint); margin:0 0 16px}
+
+/* combo chart */
+.chart{width:100%; height:270px}
+.chart .bar{transition:.2s; cursor:pointer}
+.chart .bar:hover{opacity:.82}
+.chart text{font-size:10px; fill:var(--ink-faint); font-variant-numeric:tabular-nums}
+.tt{position:fixed; pointer-events:none; background:var(--ink); color:#fff; font-size:11.5px; padding:8px 10px;
+  border-radius:9px; opacity:0; transition:opacity .12s; z-index:80; white-space:nowrap; box-shadow:0 8px 20px rgba(0,0,0,.25)}
+.tt b{font-weight:500}
+.legend{display:flex; gap:16px; font-size:11px; color:var(--ink-soft); margin-top:6px}
+.legend i{width:12px; height:3px; display:inline-block; border-radius:2px; margin-right:6px; vertical-align:middle}
+.legend .dotl{width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:6px; vertical-align:middle}
+
+/* acquisition log */
+.acqlog{max-height:292px; overflow:auto; margin:-4px -6px 0; padding:0 6px}
+.acqmonth{border-top:1px solid var(--line); padding:11px 0 9px}
+.acqmonth:first-child{border-top:none}
+.acqmonth .mh{display:flex; justify-content:space-between; align-items:center; margin-bottom:7px}
+.acqmonth .mh .mn{font-size:12px; color:var(--ink-soft); letter-spacing:.4px}
+.badge{font-size:11px; background:var(--indigo-soft); color:var(--indigo-ink); border-radius:20px; padding:2px 9px}
+.acqmonth .brands{display:flex; flex-wrap:wrap; gap:6px}
+.bpill{font-size:11.5px; background:#fff; border:1px solid var(--line-strong); border-radius:8px; padding:4px 9px; color:var(--ink)}
+.acqtotal{border-top:2px solid var(--line-strong); margin-top:6px; padding-top:11px; display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft)}
+
+/* aging */
+.aging{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:2px}
+.agebox{border:1px solid var(--line); border-radius:13px; padding:14px; background:#fbfbfe}
+.agebox .al{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint)}
+.agebox .av{font-size:20px; margin-top:8px}
+.agebox .ac{font-size:11px; color:var(--ink-faint); margin-top:4px}
+.agebox.warn{background:var(--amber-soft); border-color:#f3e2c2}
+.agebox.bad{background:var(--red-soft); border-color:#f3cccc}
+
+/* tables */
+table{width:100%; border-collapse:collapse; font-size:12.5px}
+th{text-align:left; font-weight:500; color:var(--ink-faint); font-size:10px; letter-spacing:.8px; text-transform:uppercase;
+  padding:8px 10px; border-bottom:1px solid var(--line-strong); cursor:pointer; user-select:none; white-space:nowrap}
+th .arrow{opacity:.4; font-size:9px}
+td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fafaff}
+.pill{font-size:11px; padding:3px 9px; border-radius:20px; display:inline-block; white-space:nowrap}
+.pill.green{background:var(--green-soft); color:var(--green)}
+.pill.amber{background:var(--amber-soft); color:var(--amber)}
+.pill.red{background:var(--red-soft); color:var(--red)}
+.pill.grey{background:#f0f1f6; color:var(--ink-soft)}
+
+/* moon-phase milestone indicator (brand signature) */
+.phases{display:inline-flex; gap:3px; align-items:center}
+.ph{width:11px; height:11px; border-radius:50%; border:1.5px solid var(--indigo); position:relative; overflow:hidden}
+.ph.on{background:var(--indigo)} .ph.off{background:#fff}
+.mlabel{font-size:11px; color:var(--ink-soft); margin-left:6px; font-variant-numeric:tabular-nums}
+
+/* ledger */
+.ledger-controls{display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap}
+.seg{display:inline-flex; background:#f0f1f6; border-radius:10px; padding:3px}
+.seg button{border:none; background:none; font:inherit; font-size:12px; color:var(--ink-soft); padding:6px 12px; border-radius:8px; cursor:pointer}
+.seg button.on{background:#fff; color:var(--indigo-ink); box-shadow:var(--shadow)}
+.client{border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; background:#fff}
+.client summary{list-style:none; cursor:pointer; padding:14px 18px; display:grid;
+  grid-template-columns:1.7fr .9fr 1fr 1fr .9fr; gap:12px; align-items:center}
+.client summary::-webkit-details-marker{display:none}
+.client summary:hover{background:#fafaff}
+.client[open] summary{border-bottom:1px solid var(--line); background:#fafaff}
+.cname{font-size:13.5px; color:var(--ink); display:flex; align-items:center; gap:8px}
+.cname .caret{transition:.2s; color:var(--ink-faint)}
+.client[open] .cname .caret{transform:rotate(90deg)}
+.cmeta{font-size:11px; color:var(--ink-faint)}
+.cmeta b{font-weight:400; color:var(--ink); font-size:13px}
+.cbody{padding:6px 18px 16px}
+.cbody table{font-size:12px}
+.cbody th{cursor:default}
+.hint{font-size:11px; color:var(--ink-faint)}
+
+/* ARPA workings toggle */
+.arpa-work{margin-top:14px; border-top:1px solid var(--line); padding-top:14px; display:none}
+.arpa-work.open{display:block}
+.mono{font-variant-numeric:tabular-nums}
+
+.footnote{font-size:11px; color:var(--ink-faint); margin-top:28px; text-align:center; line-height:1.7}
+.checks{margin-top:12px; border:1px solid #f3e2c2; background:var(--amber-soft); border-radius:14px; padding:12px 16px; font-size:12.5px; color:#8a5a08}
+.diag{margin:8px 4px 0; font-size:12px; color:#a3341f; line-height:1.6; word-break:break-word}
+.diag:empty{display:none}
+.checks b{font-weight:500}
+.checks ul{margin:7px 0 0; padding-left:18px} .checks li{margin:3px 0}
+.count-anim{transition:none}
+@media (max-width:1440px){ .tiles{grid-template-columns:repeat(4,1fr)} .grid3{grid-template-columns:1fr 1fr} .grid3 .panel:first-child{grid-column:1/-1} }
+@media (max-width:1080px){ .tiles{grid-template-columns:repeat(3,1fr)} .grid3,.grid2b{grid-template-columns:1fr} }
+@media (max-width:620px){ .tiles{grid-template-columns:repeat(2,1fr)} .aging{grid-template-columns:1fr 1fr}
+  .client summary{grid-template-columns:1fr; gap:6px} .wrap{padding:16px} }
+@media (prefers-reduced-motion:reduce){ *{transition:none!important; animation:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="moon" aria-hidden="true"></div>
+      <div>
+        <h1>Moontech</h1>
+        <div class="sub">Client Profile</div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="ctl">
+        <label for="monthSel">Month</label>
+        <select id="monthSel" class="field"></select>
+      </div>
+      <div class="ctl">
+        <label for="search">Client</label>
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+          <input id="search" class="field" placeholder="Search brand or invoice…" autocomplete="off">
+          <div id="typeahead" class="typeahead"></div>
+        </div>
+      </div>
+      <button class="btn" id="resetBtn">Reset</button>
+    </div>
+  </header>
+
+  <div class="dbar">
+    <span class="dot" id="srcDot"></span>
+    <span id="srcMsg">Loading…</span>
+    <span class="grow">
+      <span id="asOf" class="hint"></span>
+      <label class="btn" for="fileInput">Upload CSV</label>
+      <input type="file" id="fileInput" accept=".csv">
+      <button class="btn" id="sampleBtn">Load sample</button>
+      <button class="btn" id="refreshBtn">Refresh</button>
+    </span>
+  </div>
+  <p class="diag" id="diag"></p>
+
+  <!-- KPI TILES -->
+  <section class="tiles" id="tiles"></section>
+  <p class="hint" id="periodNote" style="margin:10px 2px 0"></p>
+  <div id="dataChecks"></div>
+
+  <!-- TREND + ACQUISITION + COLLECTIONS -->
+  <section class="grid3">
+    <div class="panel">
+      <h2>Monthly trend</h2>
+      <p class="lede">Revenue collected each month (bars) against new brands won that month (line).</p>
+      <svg class="chart" id="chart" viewBox="0 0 760 270" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend">
+        <span><i style="background:var(--indigo)"></i>Revenue collected (AED)</span>
+        <span><span class="dotl" style="background:var(--green)"></span>New brands won</span>
+        <span style="color:var(--ink-faint)">Hatched bar / dashed line = current month, still in progress</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Acquisition log</h2>
+      <p class="lede">New brands, dated by their first paid invoice.</p>
+      <div class="acqlog" id="acqlog"></div>
+    </div>
+    <div class="panel">
+      <h2>Collections &amp; ageing</h2>
+      <p class="lede">Invoiced, not yet paid or cancelled, by days past due.</p>
+      <div class="aging" id="aging"></div>
+    </div>
+  </section>
+
+  <!-- VELOCITY + ARPA WORKINGS -->
+  <section class="grid2b">
+    <div class="panel">
+      <h2>ROAS velocity</h2>
+      <p class="lede" id="velSummary"></p>
+      <div style="overflow-x:auto"><table id="velTable"></table></div>
+    </div>
+    <div class="panel">
+      <h2>ARPA workings <span class="hint" style="text-transform:none;letter-spacing:0"> — audit trail</span></h2>
+      <p class="lede">Per paid ROAS client. ≤ M2 uses spend to date; &gt; M2 annualises the latest paid invoice. Converted at <span id="pegLbl" class="mono"></span> AED/USD.</p>
+      <div class="ledger-controls">
+        <div class="seg" id="arpaUniverse">
+          <button data-u="roas" class="on">ROAS clients</button>
+          <button data-u="all">All paid clients</button>
+        </div>
+        <button class="btn" id="arpaToggle">Show per-client workings</button>
+      </div>
+      <div class="arpa-work" id="arpaWork"></div>
+    </div>
+  </section>
+
+  <!-- CLIENT LEDGER -->
+  <section class="panel" style="margin-top:16px">
+    <h2>Client ledger</h2>
+    <p class="lede">Every client's invoices, payment status and current ROAS milestone. Click to expand.</p>
+    <div class="ledger-controls">
+      <div class="seg" id="ledgerFilter">
+        <button data-f="all" class="on">All</button>
+        <button data-f="paid">Has paid</button>
+        <button data-f="outstanding">Outstanding</button>
+        <button data-f="roas">ROAS only</button>
+      </div>
+      <span class="hint" id="ledgerCount"></span>
+    </div>
+    <div id="ledger"></div>
+  </section>
+
+  <div class="footnote" id="footnote"></div>
+</div>
+
+<div class="tt" id="tooltip"></div>
+
+<script>
+/* =====================================================================
+   MOON TECH INTELLIGENCE — computation + render
+   Rules follow the brief literally. Status is read only from
+   "Invoice Status". Milestones only from "ROAS- Milestone". Grouping
+   by exact "Client Name" (so "…- DKNY" and "…- Kizik" stay separate).
+   ===================================================================== */
+
+const F = {                         // formatting helpers
+  aed: n => "AED " + Math.round(n||0).toLocaleString("en-US"),
+  usd: n => "$" + Math.round(n||0).toLocaleString("en-US"),
+  int: n => (n||0).toLocaleString("en-US"),
+  pct: n => (n>=0?"+":"") + n.toFixed(1) + "%",
+  date: d => d ? String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0")+"/"+d.getFullYear() : "—",
+  ym: d => d ? d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0") : null,
+  ymLabel: k => { const [y,m]=k.split("-"); return new Date(y,m-1,1).toLocaleString("en-US",{month:"short"})+" "+y.slice(2); }
+};
+const parseDate = v => {
+  if(!v) return null; v=String(v).trim(); if(!v||/^n\/?a$/i.test(v)) return null;
+  let m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);      // MM/DD/YYYY
+  if(m){ let[_,a,b,y]=m; y=y.length===2?"20"+y:y; return new Date(+y,+a-1,+b); }
+  m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);                       // ISO fallback
+  if(m){ return new Date(+m[1],+m[2]-1,+m[3]); }
+  const d=new Date(v); return isNaN(d)?null:d;
+};
+const parseAmt = v => { if(v==null) return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(n)?0:n; };
+const parseMile = v => { const m=String(v||"").match(/milestone[\s\-]*([1-5])/i); return m?+m[1]:null; };
+const norm = s => String(s||"").trim().toLowerCase().replace(/[\s\-]+/g," ");
+
+// map arbitrary header text to canonical keys
+const HKEYS = {
+  invoice:["invoice"], client:["client name"], brandCol:["brand name"], desc:["description"], brand:["brand"],
+  mile:["roas milestone","roas- milestone","roas-milestone"], invDate:["invoice date"],
+  terms:["payment terms"], due:["due date"], pastDue:["days past due"], total:["total"],
+  status:["invoice status"], amend:["ammendment details","amendment details"],
+  remC:["no of reminders till confirmation"], remP:["no of reminders till payment"],
+  payDate:["payment receipt date","payment recepit date","payment reciept date"], daysToPay:["days between invoicing and payment"], today:["todays date","today's date"]
+};
+function buildMap(headers){
+  const map={}; const H=headers.map(norm);
+  for(const key in HKEYS){ for(const cand of HKEYS[key]){ const i=H.indexOf(norm(cand)); if(i>=0){ map[key]=headers[i]; break; } } }
+  return map;
+}
+
+let STATE = { rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", sort:{key:null,dir:1} };
+
+function normalizeRows(raw, headers){
+  const map = buildMap(headers);
+  const get = (r,k)=> map[k]!==undefined ? r[map[k]] : "";
+  const rows = raw.map(r=>{
+    const status = String(get(r,"status")||"").trim();
+    const client = tidy(get(r,"client"));
+    const brandCell = tidy(get(r,"brandCol"));
+    return {
+      invoice:String(get(r,"invoice")||"").trim(),
+      client,
+      // Brand Name column is authoritative. Only fall back to name-splitting
+      // if that column is absent or blank for this row.
+      brand: brandCell || brandName(client),
+      brandFromSheet: !!brandCell,
+      desc:String(get(r,"desc")||"").trim(),
+      isNew:/new brand/i.test(get(r,"brand")||""),
+      mile:parseMile(get(r,"mile")),
+      invDate:parseDate(get(r,"invDate")),
+      due:parseDate(get(r,"due")),
+      pastDue:parseAmt(get(r,"pastDue")),
+      total:parseAmt(get(r,"total")),
+      status, isPaid:/^paid$/i.test(status), isCancelled:/^cancelled$/i.test(status),
+      remP:parseAmt(get(r,"remP")),
+      payDate:parseDate(get(r,"payDate")),
+      todayRaw:get(r,"today")
+    };
+  }).filter(r=> r.client || r.invoice);
+  // "Today" = first non-empty Todays Date value; the sheet may also keep
+  // =TODAY() in the header row beside the label; else the real today
+  let today=null; for(const r of rows){ const d=parseDate(r.todayRaw); if(d){today=d;break;} }
+  if(!today){ for(const h of headers){ const d=parseDate(h); if(d){today=d;break;} } }
+  return {rows, today: today || new Date()};
+}
+
+/* ---------- client aggregation ---------- */
+function byClient(rows){
+  const m=new Map();
+  for(const r of rows){ const k=r.brand||r.client; if(!k) continue; if(!m.has(k)) m.set(k,[]); m.get(k).push(r); }
+  const out=[];
+  for(const [name,invs] of m){
+    const paid=invs.filter(i=>i.isPaid);
+    const paidMiles=paid.map(i=>i.mile).filter(Boolean);
+    const anyMiles=invs.map(i=>i.mile).filter(Boolean);
+    const level=paidMiles.length?Math.max(...paidMiles):(anyMiles.length?Math.max(...anyMiles):null);
+    const totalPaid=paid.reduce((s,i)=>s+i.total,0);
+    const outstanding=invs.filter(i=>!i.isPaid&&!i.isCancelled).reduce((s,i)=>s+i.total,0);
+    const firstPaid=paid.filter(i=>i.invDate).sort((a,b)=>a.invDate-b.invDate)[0]||null;
+    const latestPaid=paid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||null;
+    out.push({name,invs,paid,hasPaid:paid.length>0,isNew:invs.some(i=>i.isNew),
+      entities:[...new Set(invs.map(i=>i.client).filter(Boolean))],
+      level, paidLevel: paidMiles.length?Math.max(...paidMiles):null,
+      totalPaid, outstanding, firstPaid, latestPaid});
+  }
+  return out;
+}
+
+/* ---------- ARPA ---------- */
+function computeARPA(clients){
+  const peg=CONFIG.AED_PER_USD;
+  const universe = STATE.arpaUniverse || CONFIG.ARPA_UNIVERSE || "roas";
+  const rowsWork=[];
+  // paid clients; ROAS-only universe additionally requires a paid ROAS milestone
+  const qualifying=clients.filter(c=> c.hasPaid && (universe==="all" || c.paidLevel));
+  const excluded=clients.filter(c=> c.hasPaid && !c.paidLevel).length;
+  for(const c of qualifying){
+    let aed, basis;
+    if(!c.paidLevel){ aed=c.totalPaid; basis="Spend to date (no ROAS)"; }
+    else if(c.paidLevel<=2){ aed=c.totalPaid; basis="Spend to date"; }
+    else { const amt=c.latestPaid?c.latestPaid.total:0; aed=amt*12; basis="Latest paid × 12"; }
+    rowsWork.push({name:c.name, level:c.paidLevel, basis, aed, usd:aed/peg, latest:c.latestPaid});
+  }
+  const arpa = rowsWork.length ? rowsWork.reduce((s,r)=>s+r.usd,0)/rowsWork.length : 0;
+  return {arpa, n:rowsWork.length, universe, excluded, rows:rowsWork.sort((a,b)=>b.usd-a.usd)};
+}
+
+/* ---------- monthly series ---------- */
+function monthKeysFrom(startISO, endDate){
+  const s=new Date(startISO); const keys=[];
+  let y=s.getFullYear(), m=s.getMonth();
+  const ey=endDate.getFullYear(), em=endDate.getMonth();
+  while(y<ey || (y===ey&&m<=em)){ keys.push(y+"-"+String(m+1).padStart(2,"0")); m++; if(m>11){m=0;y++;} }
+  return keys;
+}
+function revenueForMonth(rows,key){ return rows.filter(r=>r.isPaid && F.ym(r.payDate)===key).reduce((s,r)=>s+r.total,0); }
+function paidClientsInMonth(rows,key){ const s=new Set(); rows.forEach(r=>{ if(r.isPaid&&F.ym(r.payDate)===key) s.add(r.client); }); return s.size; }
+
+/* new brands (R5): New Brand + >=1 paid; dated by first paid invoice's INVOICE date */
+function newBrandAcquisitions(clients){
+  const out=[];
+  for(const c of clients){ if(c.isNew && c.firstPaid){ out.push({name:c.name, month:F.ym(c.firstPaid.invDate), date:c.firstPaid.invDate}); } }
+  return out;
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+let CACHE={}; // for count-up prev values
+
+function filteredRows(){
+  const q=STATE.query;
+  if(!q) return STATE.rows;
+  const ql=q.toLowerCase();
+  return STATE.rows.filter(r=> r.brand.toLowerCase().includes(ql) || r.client.toLowerCase().includes(ql) || r.invoice.toLowerCase().startsWith(ql));
+}
+
+function render(){
+  const rows=filteredRows();
+  const clients=byClient(rows);
+  const today=STATE.today;
+  const selMonth=STATE.month;                       // "ALL" | "Y2025" | "Y2026" | "YYYY-MM"
+  const isAll = selMonth==="ALL";
+  const yearSel = /^Y(\d{4})$/.test(selMonth) ? +selMonth.slice(1) : null;
+  const prevMonth = (isAll||yearSel) ? null :
+    (()=>{ const [y,m]=selMonth.split("-").map(Number); const d=new Date(y,m-2,1); return F.ym(d); })();
+  const inSel = d => { if(!d) return false;
+    if(isAll) return true;
+    if(yearSel) return d.getFullYear()===yearSel;
+    return F.ym(d)===selMonth; };
+  const inPrev = d => { if(!d) return false;
+    if(isAll) return false;
+    if(yearSel) return d.getFullYear()===yearSel-1;
+    return F.ym(d)===prevMonth; };
+  const selLabel = isAll ? "Overall" : yearSel ? String(yearSel) : F.ymLabel(selMonth);
+  const prevLabel = isAll ? "" : yearSel ? String(yearSel-1) : F.ymLabel(prevMonth);
+
+  /* Period window. Two date anchors are used deliberately:
+       - cash metrics (Revenue)      -> Payment receipt date
+       - billing metrics (Invoiced /
+         Paid / Unpaid / Cancelled)  -> Invoice date  (a billing cohort)
+     So "Revenue" = cash collected in the period, while "Total paid" =
+     of what we billed in the period, how much has been settled. */
+  const periodEnd = isAll ? today
+    : yearSel ? new Date(yearSel,11,31)
+    : (()=>{ const [y,m]=selMonth.split("-").map(Number); return new Date(y,m,0); })();
+
+  document.getElementById("pegLbl").textContent=CONFIG.AED_PER_USD.toFixed(4);
+  document.getElementById("asOf").textContent="Sheet date: "+F.date(today);
+
+  // ---- KPI values: all scoped to the selected period ----
+  const cashSel = rows.filter(r=>r.isPaid && inSel(r.payDate));
+  const cashPrev= rows.filter(r=>r.isPaid && inPrev(r.payDate));
+  const rev=cashSel.reduce((s,r)=>s+r.total,0);
+  const revPrev=cashPrev.reduce((s,r)=>s+r.total,0);
+  const revPct=revPrev? (rev-revPrev)/revPrev*100 : 0;
+
+  const billSel = rows.filter(r=>inSel(r.invDate));
+  const billPrev= rows.filter(r=>inPrev(r.invDate));
+  const sum = a => a.reduce((s,r)=>s+r.total,0);
+  const chip = (cur,prev) => { if(isAll||!prev) return null;
+    // A period with no activity is not a "-100%" decline — say so plainly.
+    if(!cur) return `<span class="chip">none in ${selLabel}</span>`;
+    const p=(cur-prev)/prev*100;
+    return `<span class="chip ${p>=0?'up':'down'}">${F.pct(p)}</span> vs ${prevLabel}`; };
+
+  const invoicedRows=billSel.filter(r=>!r.isCancelled), totalInvoiced=sum(invoicedRows);
+  const invoicedPrev=sum(billPrev.filter(r=>!r.isCancelled));
+  const paidRows=billSel.filter(r=>r.isPaid), totalPaid=sum(paidRows);
+  const paidPrev=sum(billPrev.filter(r=>r.isPaid));
+  const unpaidRows=billSel.filter(r=>!r.isPaid&&!r.isCancelled), totalUnpaid=sum(unpaidRows);
+  const unpaidPrev=sum(billPrev.filter(r=>!r.isPaid&&!r.isCancelled));
+  const cancRows=billSel.filter(r=>r.isCancelled), totalCanc=sum(cancRows);
+  const cancPrev=sum(billPrev.filter(r=>r.isCancelled));
+  const overdueCount=unpaidRows.filter(r=>r.pastDue>0).length;
+  const collectionRate= totalInvoiced? totalPaid/totalInvoiced*100 : 0;
+
+  // new brands: dated by first paid invoice's INVOICE date (R5)
+  const acq=newBrandAcquisitions(clients);
+  const acqSel=acq.filter(a=>inSel(a.date)).length;
+  const acqPrevN=acq.filter(a=>inPrev(a.date)).length;
+  const acqSince=acq.filter(a=>a.date>=new Date(CONFIG.ACQUISITION_START));
+
+  // ARPA "as at" period end: only invoices dated on/before the period end count
+  const asAtRows=rows.filter(r=>!r.invDate || r.invDate<=periodEnd);
+  const A=computeARPA(byClient(asAtRows));
+  const prevEnd = isAll ? null : yearSel ? new Date(yearSel-1,11,31)
+    : (()=>{ const [y,m]=prevMonth.split("-").map(Number); return new Date(y,m,0); })();
+  const APrev = prevEnd ? computeARPA(byClient(rows.filter(r=>!r.invDate || r.invDate<=prevEnd))) : null;
+
+  // sales conversion: brands won since CONVERSION_START, capped at period end
+  const convWon=clients.filter(c=>c.isNew && c.hasPaid && c.firstPaid
+    && c.firstPaid.invDate>=new Date(CONFIG.CONVERSION_START) && c.firstPaid.invDate<=periodEnd).length;
+  const leads=STATE.leads||75;
+  const convPct= leads? convWon/leads*100 : 0;
+
+  // ---- KPI tiles ----
+  const tiles=[
+    {cls:"mint", h:"Revenue collected", cur:"AED", key:"rev", v:rev,
+      sub: isAll ? `${F.int(cashSel.length)} receipts all-time`
+        : `${chip(rev,revPrev)||`<span class="chip">no ${prevLabel} base</span>`} · ${F.aed(revPrev)}`},
+    {cls:"sky", h:"Total invoiced", cur:"AED", key:"inv", v:totalInvoiced,
+      sub: !invoicedRows.length ? `nothing billed in ${selLabel}`
+        : isAll ? `${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled`
+        : `${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled ${chip(totalInvoiced,invoicedPrev)||""}`},
+    {cls:"lilac", h:"Total paid", cur:"AED", key:"paid", v:totalPaid,
+      sub: !invoicedRows.length ? `—` : `${F.int(paidRows.length)} settled ${chip(totalPaid,paidPrev)||""}`},
+    {cls:"rose", h:"Total unpaid", cur:"AED", key:"unpaid", v:totalUnpaid,
+      sub: !invoicedRows.length ? `—` : `${F.int(unpaidRows.length)} open · ${F.int(overdueCount)} overdue ${chip(totalUnpaid,unpaidPrev)||""}`},
+    {cls:"peach", h:"Total cancelled", cur:"AED", key:"canc", v:totalCanc,
+      sub: !billSel.length ? `—` : `${F.int(cancRows.length)} cancelled ${chip(totalCanc,cancPrev)||""}`},
+    {cls:"cream", h:"New brands won", cur:"", key:"nb", v:acqSel, int:true,
+      sub: isAll ? `${acqSince.length} since Oct '25`
+        : `${chip(acqSel,acqPrevN)||`<span class="chip">${acqPrevN} in ${prevLabel}</span>`} · ${acqSince.length} since Oct '25`},
+    {cls:"pink", h:"ARPA · annualised", cur:"$", key:"arpa", v:A.arpa,
+      sub:`${A.n} paid ROAS brands${APrev&&APrev.arpa?` ${chip(A.arpa,APrev.arpa)||""}`:""} · <span id="convInline">${convPct.toFixed(1)}% conv</span>`}
+  ];
+  document.getElementById("periodNote").textContent=
+    isAll ? "All-time. Revenue is by payment date; invoiced, paid, unpaid and cancelled are by invoice date."
+    : `${selLabel}. Revenue = cash collected in period (payment date). Invoiced / paid / unpaid / cancelled = billed in period (invoice date). ARPA as at ${F.date(periodEnd>today?today:periodEnd)}.`;
+  const tilesEl=document.getElementById("tiles");
+  tilesEl.innerHTML=tiles.map(t=>`
+    <div class="tile ${t.cls}">
+      <div class="h">${t.h}</div>
+      <div class="v">${t.cur?`<span class="cur">${t.cur}</span>`:""}<span class="num" data-count="${t.v}" data-int="${t.int?1:0}" data-key="${t.key}">0</span></div>
+      <div class="s">${t.sub}</div>
+    </div>`).join("");
+  animateCounts();
+
+  // Contacted-leads input lives inside the ARPA/conversion context — add editable field to pink tile subtitle
+  const convInline=document.getElementById("convInline");
+  if(convInline){ convInline.innerHTML=`<input class="leads-input" id="leadsInput" type="number" min="0" value="${leads}"> leads → ${convWon} won (${convPct.toFixed(1)}%)`;
+    document.getElementById("leadsInput").addEventListener("input",e=>{ STATE.leads=parseInt(e.target.value)||0; render(); }); }
+
+  renderChart(rows, clients, today);
+  renderDataChecks(rows);
+  renderAcqLog(acq);
+  renderAging(rows, today);
+  renderARPAWork(A);
+  renderVelocity(clients, today);
+  renderLedger(clients);
+  document.getElementById("footnote").innerHTML=
+    `Grouping by exact Client Name · status read only from Invoice Status · milestones only from ROAS- Milestone · ARPA converted at ${CONFIG.AED_PER_USD} AED/USD · "today" = ${F.date(today)} from the sheet.`;
+}
+
+/* count-up animation */
+function animateCounts(){
+  document.querySelectorAll("[data-count]").forEach(el=>{
+    const target=parseFloat(el.dataset.count)||0; const isInt=el.dataset.int==="1"; const key=el.dataset.key;
+    const from=CACHE[key]!==undefined?CACHE[key]:0; CACHE[key]=target;
+    const dur=650, t0=performance.now();
+    const step=now=>{ const p=Math.min(1,(now-t0)/dur); const e=1-Math.pow(1-p,3); const val=from+(target-from)*e;
+      el.textContent=isInt?Math.round(val).toLocaleString("en-US"):Math.round(val).toLocaleString("en-US");
+      if(p<1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
+
+/* combo chart (hand-rolled SVG) */
+function renderChart(rows, clients, today){
+  const svg=document.getElementById("chart");
+  const keys=monthKeysFrom(CONFIG.ACQUISITION_START, today);
+  const rev=keys.map(k=>revenueForMonth(rows,k));
+  const acq=newBrandAcquisitions(clients);
+  const newB=keys.map(k=>acq.filter(a=>a.month===k).length);
+  const W=760,H=270, padL=54,padR=30,padT=18,padB=34;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const maxRev=Math.max(...rev,1), maxN=Math.max(...newB,1);
+  const bw=iw/keys.length*0.56;
+  const x=i=> padL + iw*(i+0.5)/keys.length;
+  const yR=v=> padT+ih - (v/maxRev)*ih;
+  const yN=v=> padT+ih - (v/maxN)*ih;
+  let g="";
+  // gridlines
+  for(let t=0;t<=4;t++){ const gy=padT+ih*t/4; const val=maxRev*(1-t/4);
+    g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#eef0f6"/>`;
+    g+=`<text x="${padL-8}" y="${gy+3}" text-anchor="end">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`; }
+  // bars — the final month is still in progress, so it is drawn hatched
+  const lastIdx=keys.length-1;
+  rev.forEach((v,i)=>{ const h=Math.max(0,(v/maxRev)*ih); const bx=x(i)-bw/2; const by=padT+ih-h;
+    const partial = i===lastIdx;
+    const sel = keys[i]===STATE.month;
+    g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4"
+        fill="${partial?'url(#gp)':'url(#gb)'}" ${sel?'stroke="#1b1650" stroke-width="1.5"':''}
+        data-k="${keys[i]}" data-rev="${v}" data-nb="${newB[i]}" data-partial="${partial?1:0}"/>`; });
+  // month labels (every other if crowded)
+  const skip=keys.length>10?2:1;
+  keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle"
+    ${k===STATE.month?'fill="#1b1650"':''}>${F.ymLabel(k).split(" ")[0]}</text>`; });
+  // "month to date" marker over the final column
+  g+=`<text x="${x(lastIdx)}" y="${padT-4}" text-anchor="middle" font-size="8.5">to date</text>`;
+  // line for new brands — final segment dashed (partial month)
+  let path=""; newB.forEach((v,i)=>{ if(i<lastIdx) path+=(i?"L":"M")+x(i)+" "+yN(v)+" "; });
+  g+=`<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linejoin="round"/>`;
+  if(lastIdx>0) g+=`<path d="M${x(lastIdx-1)} ${yN(newB[lastIdx-1])} L${x(lastIdx)} ${yN(newB[lastIdx])}"
+    fill="none" stroke="var(--green)" stroke-width="2.2" stroke-dasharray="4 3" opacity=".65"/>`;
+  newB.forEach((v,i)=>{ g+=`<circle cx="${x(i)}" cy="${yN(v)}" r="3.6" fill="${i===lastIdx?'#eafaf0':'#fff'}" stroke="var(--green)" stroke-width="2"
+     class="bar" data-k="${keys[i]}" data-rev="${rev[i]}" data-nb="${v}" data-partial="${i===lastIdx?1:0}"/>`; });
+  svg.innerHTML=`<defs><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6d64f0"/><stop offset="100%" stop-color="#4f46e5"/></linearGradient>
+      <pattern id="gp" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <rect width="6" height="6" fill="#dcd9fb"/><line x1="0" y1="0" x2="0" y2="6" stroke="#8079ef" stroke-width="3"/>
+      </pattern></defs>`+g;
+  // tooltip
+  const tt=document.getElementById("tooltip");
+  svg.querySelectorAll(".bar").forEach(el=>{
+    el.addEventListener("mousemove",e=>{ tt.style.opacity=1;
+      tt.innerHTML=`<b>${F.ymLabel(el.dataset.k)}</b>${el.dataset.partial==="1"?" — month to date":""}<br>${F.aed(+el.dataset.rev)} collected<br>${el.dataset.nb} new brand${el.dataset.nb==1?"":"s"}`;
+      tt.style.left=(e.clientX+14)+"px"; tt.style.top=(e.clientY-10)+"px"; });
+    el.addEventListener("mouseleave",()=>tt.style.opacity=0);
+  });
+}
+
+/* Flags likely sheet mistakes rather than silently splitting a brand in two.
+   Same invoice prefix (AWG-01 / AWG-02) with two different Brand Names almost
+   always means a typo in one of them. */
+function renderDataChecks(rows){
+  const el=document.getElementById("dataChecks"); const issues=[];
+  const byPrefix=new Map();
+  rows.forEach(r=>{ const p=(r.invoice.split("-")[0]||"").trim().toUpperCase(); if(!p) return;
+    if(!byPrefix.has(p)) byPrefix.set(p,new Set()); byPrefix.get(p).add(r.brand); });
+  // Near-identical names under one prefix (Aiza / Alza) are almost certainly a
+  // typo. Genuinely different names (DKNY / Kizik) are a real multi-brand client.
+  const nearMatch=(a,b)=>{ a=a.toLowerCase(); b=b.toLowerCase(); if(Math.abs(a.length-b.length)>1) return false;
+    let d=0; const L=Math.max(a.length,b.length);
+    for(let i=0;i<L;i++) if(a[i]!==b[i]) d++;
+    return d<=1 || (a.length===b.length && d===2); };
+  for(const [p,set] of byPrefix){ const names=[...set];
+    for(let i=0;i<names.length;i++) for(let j=i+1;j<names.length;j++)
+      if(nearMatch(names[i],names[j])) issues.push(`Possible typo: <b>${names[i]}</b> and <b>${names[j]}</b> both appear under invoice prefix ${p} — currently counted as two brands.`); }
+  const blanks=rows.filter(r=>!r.brandFromSheet && r.invoice).map(r=>r.invoice);
+  if(blanks.length) issues.push(`${blanks.length} row${blanks.length===1?"":"s"} have no Brand Name — falling back to the client name (${blanks.slice(0,6).join(", ")}${blanks.length>6?"…":""}).`);
+  const multi=new Map();
+  rows.forEach(r=>{ if(!r.brand) return; if(!multi.has(r.brand)) multi.set(r.brand,new Set()); multi.get(r.brand).add(r.client); });
+  for(const [b,set] of multi){ if(set.size>1)
+    issues.push(`Brand <b>${b}</b> appears under ${set.size} client names — merged into one brand.`); }
+  el.innerHTML = issues.length
+    ? `<div class="checks"><b>Data checks</b><ul>${issues.map(i=>`<li>${i}</li>`).join("")}</ul></div>` : "";
+}
+
+function renderAcqLog(acq){
+  const el=document.getElementById("acqlog");
+  const groups={}; acq.forEach(a=>{ (groups[a.month]=groups[a.month]||[]).push(a.name); });
+  const months=Object.keys(groups).sort();
+  if(!months.length){ el.innerHTML=`<p class="hint">No acquired brands in range.</p>`; return; }
+  let html="";
+  months.forEach(m=>{ const names=groups[m];
+    html+=`<div class="acqmonth"><div class="mh"><span class="mn">${F.ymLabel(m)}</span><span class="badge">${names.length}</span></div>
+      <div class="brands">${names.map(n=>`<span class="bpill">${n}</span>`).join("")}</div></div>`; });
+  html+=`<div class="acqtotal"><span>Total acquired</span><span class="num">${acq.length}</span></div>`;
+  el.innerHTML=html;
+}
+
+function renderAging(rows, today){
+  const open=rows.filter(r=>!r.isPaid && !r.isCancelled);
+  const buckets=[{l:"Current",cls:"",min:-1e9,max:0},{l:"1–30 days",cls:"",min:1,max:30},
+    {l:"31–60 days",cls:"warn",min:31,max:60},{l:"60+ days",cls:"bad",min:61,max:1e9}];
+  const el=document.getElementById("aging");
+  el.innerHTML=buckets.map(b=>{
+    const rs=open.filter(r=>r.pastDue>=b.min && r.pastDue<=b.max);
+    const amt=rs.reduce((s,r)=>s+r.total,0);
+    return `<div class="agebox ${b.cls}"><div class="al">${b.l}</div>
+      <div class="av"><span class="cur" style="font-size:12px;color:var(--ink-faint)">AED</span> <span class="num">${Math.round(amt).toLocaleString("en-US")}</span></div>
+      <div class="ac">${rs.length} invoice${rs.length===1?"":"s"}</div></div>`;
+  }).join("");
+}
+
+function moonPhases(level){
+  let s='<span class="phases">';
+  for(let i=1;i<=5;i++) s+=`<span class="ph ${level&&i<=level?'on':'off'}"></span>`;
+  s+=`</span><span class="mlabel">${level?("M"+level):"—"}</span>`;
+  return s;
+}
+
+function renderARPAWork(A){
+  const el=document.getElementById("arpaWork");
+  if(!A.rows.length){ el.innerHTML=`<p class="hint">No qualifying paid clients.</p>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Value (AED)</th><th style="text-align:right">ARPA ($)</th></tr></thead>
+    <tbody>${A.rows.map(r=>`<tr><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">non-ROAS</span>'}</td>
+      <td class="hint" style="letter-spacing:0;text-transform:none">${r.basis}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}</td>
+      <td style="text-align:right" class="mono">${Math.round(r.aed).toLocaleString("en-US")}</td>
+      <td style="text-align:right" class="mono">${F.usd(r.usd)}</td></tr>`).join("")}
+    <tr style="border-top:2px solid var(--line-strong)"><td colspan="4" style="text-align:right;color:var(--ink-soft)">Average ARPA</td>
+      <td style="text-align:right" class="mono">${F.usd(A.arpa)}</td></tr></tbody></table>
+    ${A.universe==="roas"&&A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone (CPL or influencer campaigns). Switch to "All paid clients" to include them.</p>`:""}`;
+}
+
+function renderVelocity(clients, today){
+  const rowsData=[];
+  for(const c of clients){
+    const m1paid=c.paid.filter(i=>i.mile===1).sort((a,b)=> (a.payDate||a.invDate)-(b.payDate||b.invDate))[0];
+    if(!m1paid || !m1paid.payDate) continue;
+    const m2rows=c.invs.filter(i=>i.mile===2);
+    const m2paid=m2rows.filter(i=>i.isPaid).sort((a,b)=>(a.payDate||0)-(b.payDate||0))[0];
+    const m2cancelledOnly = m2rows.length>0 && m2rows.every(i=>i.isCancelled);
+    const days=Math.floor((today - m1paid.payDate)/86400000);
+    const passed30 = days>=30;
+    let m2label, result, pill;
+    if(m2paid){
+      let late="";
+      if(m2paid.payDate){ const gap=Math.floor((m2paid.payDate-m1paid.payDate)/86400000); if(gap>30) late=` (late, ${gap}d)`; }
+      m2label=`Yes${late}`; result="Not dropped"; pill="green";
+    } else if(m2cancelledOnly){ m2label="No (M2 cancelled)"; }
+    else { m2label="No"; }
+    if(result!=="Not dropped"){ if(!passed30){ result="Pending"; pill="amber"; } else { result="Dropped"; pill="red"; } }
+    rowsData.push({name:c.name, m1:m1paid.payDate, passed30, days, m2label, result, pill});
+  }
+  rowsData.sort((a,b)=>a.m1-b.m1);
+  const activated=rowsData.length, dropped=rowsData.filter(r=>r.result==="Dropped").length;
+  const pctD= activated? Math.round(dropped/activated*100):0;
+  const nonRoasPaid=clients.filter(c=>c.hasPaid && !c.paidLevel).length;
+  document.getElementById("velSummary").innerHTML=`Dropped <span class="num">${dropped}</span> of <span class="num">${activated}</span> activated (${pctD}%). A brand is "activated" once its Milestone-1 invoice is paid.`
+    + (nonRoasPaid?` <span class="hint">${nonRoasPaid} paid brand${nonRoasPaid===1?"":"s"} not shown — on CPL or influencer campaigns, so no ROAS milestone.</span>`:"");
+  const t=document.getElementById("velTable");
+  t.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>M2 paid?</th><th>Result</th></tr></thead>
+    <tbody>${rowsData.map(r=>`<tr><td>${r.name}</td><td class="mono">${F.date(r.m1)}</td>
+      <td>${r.passed30?'<span class="pill green">Yes</span>':`<span class="pill grey">No (${r.days}d)</span>`}</td>
+      <td>${r.m2label}</td><td><span class="pill ${r.pill}">${r.result}</span></td></tr>`).join("")}</tbody>`;
+  if(!rowsData.length) t.innerHTML=`<tbody><tr><td class="hint">No brands with a paid Milestone-1 yet.</td></tr></tbody>`;
+}
+
+function renderLedger(clients){
+  const el=document.getElementById("ledger");
+  let list=[...clients];
+  const f=STATE.ledgerFilter;
+  if(f==="paid") list=list.filter(c=>c.hasPaid);
+  else if(f==="outstanding") list=list.filter(c=>c.outstanding>0);
+  else if(f==="roas") list=list.filter(c=>c.level);
+  list.sort((a,b)=> b.totalPaid-a.totalPaid);
+  document.getElementById("ledgerCount").textContent=`${list.length} clients`;
+  el.innerHTML=list.map(c=>{
+    const statusPill = c.outstanding>0 ? `<span class="pill amber">AED ${Math.round(c.outstanding).toLocaleString("en-US")} open</span>`
+      : c.hasPaid ? `<span class="pill green">Settled</span>` : `<span class="pill grey">No payment</span>`;
+    const invRows=[...c.invs].sort((a,b)=>(b.invDate||0)-(a.invDate||0)).map(i=>{
+      const p= i.isPaid?"green": i.isCancelled?"red": "amber";
+      const st= i.isPaid?"Paid": i.isCancelled?"Cancelled": (i.status||"Open");
+      return `<tr><td class="mono">${i.invoice||"—"}</td><td>${i.desc?shortDesc(i.desc):"—"}</td>
+        <td>${i.mile?moonPhases(i.mile):'<span class="hint">N/A</span>'}</td>
+        <td class="mono">${F.date(i.invDate)}</td><td style="text-align:right" class="mono">${F.aed(i.total)}</td>
+        <td><span class="pill ${p}">${st}</span></td><td class="mono">${i.payDate?F.date(i.payDate):"—"}</td></tr>`;
+    }).join("");
+    return `<details class="client"><summary>
+        <span class="cname"><span class="caret">▸</span><span>${c.name}${c.entities.length&&c.entities[0]!==c.name?`<br><small class="hint" style="font-weight:400">${c.entities.join(" · ")}</small>`:""}</span></span>
+        <span class="cmeta">ROAS<br>${moonPhases(c.level)}</span>
+        <span class="cmeta">Paid<br><b>${F.aed(c.totalPaid)}</b></span>
+        <span class="cmeta">Invoices<br><b>${c.invs.length}</b></span>
+        <span>${statusPill}</span></summary>
+      <div class="cbody"><table><thead><tr><th>Invoice</th><th>Description</th><th>Milestone</th><th>Invoice date</th>
+        <th style="text-align:right">Amount</th><th>Status</th><th>Paid on</th></tr></thead><tbody>${invRows}</tbody></table></div>
+    </details>`;
+  }).join("");
+  if(!list.length) el.innerHTML=`<p class="hint">No clients match this filter.</p>`;
+}
+
+/* Normalise the dash and space characters Sheets stores so brand extraction
+   works whether the separator is a hyphen, en dash, em dash or non-breaking. */
+const tidy = s => String(s||"").replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g,"-").replace(/[\u00a0\u2007\u202f]/g," ").replace(/\s+/g," ").trim();
+const shortName = n => tidy(n).replace(/\s*(l\.?l\.?c\.?-?fz?|llc|fz llc|fze|trading company|company|general trading|- moontech|- mt)\b/gi,"").replace(/\s*-\s*/g," — ").replace(/\s+/g," ").trim() || tidy(n);
+/* Brand = the text after the last dash in the trade-licence name
+   ("The Elite Cars … Agencies - Jetour MT" -> "Jetour"), ignoring Moontech/MT
+   tags. CONFIG.BRAND_OVERRIDES wins over everything. */
+const brandName = n => {
+  const t=tidy(n), tl=t.toLowerCase();
+  for(const frag in (CONFIG.BRAND_OVERRIDES||{})){ if(tl.includes(frag.toLowerCase())) return CONFIG.BRAND_OVERRIDES[frag]; }
+  let parts=t.split(/\s*-\s*/).map(s=>s.trim()).filter(Boolean).filter(p=>!/^(moontech|mt)$/i.test(p));
+  let b=parts.length>1?parts[parts.length-1]:(parts[0]||t);
+  b=b.replace(/[\s,]+(MT|Moontech)$/i,"").trim();
+  return parts.length>1 && b ? b : shortName(parts.join(" - ")||t);
+};
+const shortDesc = d => d.length>46 ? d.slice(0,44)+"…" : d;
+
+/* =====================================================================
+   CONTROLS + BOOT
+   ===================================================================== */
+function buildMonthSelector(){
+  const sel=document.getElementById("monthSel");
+  const keys=monthKeysFrom(CONFIG.ACQUISITION_START, STATE.today);
+  STATE.months=keys;
+  const cur=F.ym(STATE.today);
+  // years present in the data (invoice or payment dates), oldest first
+  const yrs=[...new Set(STATE.rows.flatMap(r=>[r.invDate,r.payDate]).filter(Boolean).map(d=>d.getFullYear()))].sort();
+  sel.innerHTML=`<option value="ALL">Overall</option>`+
+    yrs.map(y=>`<option value="Y${y}">${y}</option>`).join("")+
+    `<option disabled>──────</option>`+
+    keys.map(k=>`<option value="${k}" ${k===cur?"selected":""}>${F.ymLabel(k)}</option>`).join("");
+  STATE.month=cur;
+  sel.onchange=e=>{ STATE.month=e.target.value; render(); };
+}
+function setupControls(){
+  const search=document.getElementById("search"), ta=document.getElementById("typeahead");
+  search.addEventListener("input",e=>{
+    const q=e.target.value.trim(); STATE.query=q;
+    if(q.length>=1){
+      const names=[...new Set(STATE.rows.map(r=>r.brand))].filter(n=>n.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+      const invs=STATE.rows.filter(r=>r.invoice.toLowerCase().startsWith(q.toLowerCase())).slice(0,4);
+      let html=names.map(n=>`<div class="item" data-v="${n.replace(/"/g,'&quot;')}">${n}<small>${n.slice(0,4)}</small></div>`).join("");
+      html+=invs.map(r=>`<div class="item" data-v="${r.invoice}"><small>${r.invoice}</small>${r.brand}</div>`).join("");
+      ta.innerHTML=html; ta.classList.toggle("open",!!html);
+    } else ta.classList.remove("open");
+    render();
+  });
+  ta.addEventListener("click",e=>{ const it=e.target.closest(".item"); if(!it) return;
+    search.value=it.dataset.v; STATE.query=it.dataset.v; ta.classList.remove("open"); render(); });
+  document.addEventListener("click",e=>{ if(!e.target.closest(".search-wrap")) ta.classList.remove("open"); });
+  document.getElementById("resetBtn").onclick=()=>{ search.value=""; STATE.query=""; STATE.leads=75; STATE.ledgerFilter="all";
+    document.querySelectorAll("#ledgerFilter button").forEach(b=>b.classList.toggle("on",b.dataset.f==="all"));
+    STATE.month=F.ym(STATE.today); document.getElementById("monthSel").value=STATE.month; render(); };
+  document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
+    document.querySelectorAll("#ledgerFilter button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    STATE.ledgerFilter=b.dataset.f; render(); });
+  document.getElementById("arpaUniverse").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
+    document.querySelectorAll("#arpaUniverse button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    STATE.arpaUniverse=b.dataset.u; render(); });
+  document.getElementById("arpaToggle").onclick=e=>{ const w=document.getElementById("arpaWork"); w.classList.toggle("open");
+    e.target.textContent=w.classList.contains("open")?"Hide per-client workings":"Show per-client workings"; };
+  document.getElementById("sampleBtn").onclick=()=>loadSample();
+  document.getElementById("refreshBtn").onclick=()=>loadFromSheet(true);
+  document.getElementById("fileInput").addEventListener("change",e=>{
+    const file=e.target.files[0]; if(!file) return;
+    Papa.parse(file,{header:true,skipEmptyLines:true,complete:res=>ingest(res.data,res.meta.fields,"Uploaded file: "+file.name,"live")});
+  });
+}
+function setStatus(kind,msg){ const d=document.getElementById("srcDot"), m=document.getElementById("srcMsg");
+  d.className="dot "+kind; m.textContent=msg; }
+
+function ingest(data, fields, sourceMsg, kind){
+  const {rows,today}=normalizeRows(data, fields||Object.keys(data[0]||{}));
+  if(!rows.length){ setStatus("err","No rows found — check the sheet/tab and its headers."); return; }
+  STATE.rows=rows; STATE.today=today; STATE.source=sourceMsg;
+  setStatus(kind==="live"?"live":"sample", sourceMsg+" · "+rows.length+" rows");
+  buildMonthSelector(); render();
+}
+
+function loadFromSheet(isRefresh){
+  const url=activeUrl();
+  const diag=document.getElementById("diag");
+  if(!url){ loadSample(true,{kind:"sample",
+    msg:"No sheet URL set in CONFIG — showing sample data.",
+    detail:"Open this file in a text editor and paste your published CSV link into SHEET_CSV_URL near the top."}); return; }
+  diag.textContent="";
+  setStatus("sample","Fetching sheet…");
+  // A published CSV link contains /spreadsheets/d/e/…/pub. An /edit link will
+  // not work — flag it before wasting a request.
+  if(/\/edit/.test(url) || (!/output=csv/.test(url) && !/tqx=out:csv/.test(url))){
+    loadSample(true,{kind:"err", msg:"That link isn't a CSV export — showing sample data.",
+      detail:"The URL must end in output=csv (Publish to web → CSV). A normal /edit sheet link won't work. Yours: "+url.slice(0,80)+"…"}); return;
+  }
+  Papa.parse(url,{download:true,header:true,skipEmptyLines:true,
+    complete:res=>{
+      if(!res.data||!res.data.length){ loadSample(true,{kind:"err",
+        msg:"Sheet reached, but no rows came back — showing sample data.",
+        detail:"Usually the wrong tab was published. Re-publish choosing the receivables tab specifically."}); return; }
+      const heads=(res.meta.fields||[]).map(norm);
+      if(!heads.includes(norm("client name")) && !heads.includes(norm("invoice"))){
+        loadSample(true,{kind:"err", msg:"Sheet reached, but the columns don't look right — showing sample data.",
+          detail:"Expected headers on row 1 including Invoice and Client Name. Got: "+(res.meta.fields||[]).slice(0,6).join(" | ")}); return; }
+      ingest(res.data,res.meta.fields,"Live · Google Sheet","live");
+    },
+    error:err=>{ loadSample(true,{kind:"err",
+      msg:"Couldn't reach the sheet — showing sample data.",
+      detail:"The link is either not published, or published as a web page instead of CSV. Error: "+((err&&err.message)||"network/CORS blocked")}); }
+  });
+}
+
+/* boot */
+window.addEventListener("DOMContentLoaded",()=>{
+  setupControls();
+  loadFromSheet(false);
+  if(CONFIG.REFRESH_SECONDS>0) setInterval(()=>loadFromSheet(true), CONFIG.REFRESH_SECONDS*1000);
+});
+
+/* ---------- sample data (mirrors the screenshot; replaced by your sheet) ---------- */
+function loadSample(silent, reason){
+  const csv=`Invoice,Client Name,Description,Brand,ROAS- Milestone,Invoice Date,Payment Terms,Due date,Days past due,Total,Invoice Status,Ammendment Details,No of reminders till confirmation,No of reminders till payment,Payment receipt date,Days between invoicing and payment,Todays Date
+DRM-01,DREAMABLE - Moontech,March 2025 Influencer Marketing,New Brand,N/A,03/12/2025,,3/12/2025,0,30011.56,Paid,,,,03/17/2025,5,08/19/2026
+DRM-02,DREAMABLE - Moontech,March 2025 II Influencer Marketing,New Brand,N/A,03/20/2025,,3/20/2025,0,30011.56,Paid,,,,03/26/2025,6,08/19/2026
+LCX-01,LC50X L.L.C-FZ - YaHala,June 2025 Influencer Campaign,New Brand,N/A,05/27/2025,,5/27/2025,0,23128.00,Paid,,,,06/18/2025,22,08/19/2026
+WFQ-01,Wafeq FZ LLC,June/July 2025 Influencer Marketing,New Brand,N/A,06/26/2025,,6/26/2025,0,23300.00,Paid,,,,07/14/2025,18,08/19/2026
+JSH-01,Just Hype Trading LLC,July 2025 Influencer Marketing,New Brand,N/A,07/01/2025,,7/1/2025,0,27456.00,Paid,,,,07/02/2025,1,08/19/2026
+JSH-02,Just Hype Trading LLC,August 2025 Influencer Marketing,,N/A,08/08/2025,,8/8/2025,0,7315.00,Paid,,,,08/14/2025,6,08/19/2026
+JSH-03,Just Hype Trading LLC,August 2025 Influencer Marketing II,,N/A,08/14/2025,,8/14/2025,0,22802.25,Paid,,,,08/18/2025,4,08/19/2026
+JSH-04,Just Hype Trading LLC,August 2025 Influencer Marketing III,,N/A,08/25/2025,,8/25/2025,359,7831.60,Cancelled,Service cancelled,,,,,08/19/2026
+TEM-01,Touche Elektronik Magazacilik ve Teknoloji A.S,November 2025 Performance Marketing (ROAS),New Brand,Milestone-1,11/10/2025,,11/10/2025,0,3672.50,Paid,,,,11/10/2025,0,08/19/2026
+TEM-02,Touche Elektronik Magazacilik ve Teknoloji A.S,November 2025 Performance Marketing ROAS,,Milestone-1,11/24/2025,,11/24/2025,268,3672.50,Cancelled,not yet achieved,,,,,08/19/2026
+ANF-01,ANFASIK DOKHOON (LLC),December 2025 Performance Marketing (ROAS),New Brand,Milestone-1,12/04/2025,,12/4/2025,0,7350.00,Paid,,,,02/20/2026,78,08/19/2026
+RTB-01,KITOPI CATERING SERVICES LLC - Right Bite,December 2025 Performance Marketing (ROAS M1),New Brand,Milestone-1,12/23/2025,,12/23/2025,0,3672.50,Paid,,,,01/02/2026,10,08/19/2026
+GSL-01,Golden Scent LLC - Moontech,December 2025 Performance (ROAS Campaign M1),New Brand,Milestone-1,12/30/2025,,12/30/2025,0,3672.50,Paid,,,,01/06/2026,7,08/19/2026
+GSL-02,Golden Scent LLC - Moontech,January 2026 Performance (ROAS Campaign M2),,Milestone-2,01/06/2026,,1/6/2026,0,7345.00,Paid,,,,01/12/2026,6,08/19/2026
+GSL-03,Golden Scent LLC - Moontech,February 2026 Performance (ROAS Campaign M3),,Milestone-3,02/02/2026,,2/2/2026,0,11017.50,Paid,,,,02/12/2026,10,08/19/2026
+RTB-02,KITOPI CATERING SERVICES LLC - Right Bite,February 2026 Performance (ROAS Campaign M2),,Milestone-2,02/06/2026,,2/6/2026,0,7789.37,Paid,,,,02/17/2026,11,08/19/2026
+SEH-01,Sahseh Digital Marketing LLC,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/23/2026,,2/23/2026,0,3856.13,Paid,,,,03/04/2026,9,08/19/2026
+BMP-01,Bookmypet FZE - Moontech,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/24/2026,,2/24/2026,0,3856.13,Paid,,,,03/04/2026,9,08/19/2026
+ALM-01,Alma International Company,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/25/2026,,2/25/2026,175,3672.50,Cancelled,shipment issues,,,,,08/19/2026
+DRP-01,Dropshop llc - Lawni,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/26/2026,,2/26/2026,0,3856.13,Paid,,,,03/07/2026,9,08/19/2026
+KEK-01,Khan El Kaser cosmetics trading llc,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/27/2026,,2/27/2026,173,3856.13,Cancelled,shipment issues,,,,,08/19/2026
+SEC-01,Studio earth collective LLZ FC,March 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,03/02/2026,,3/2/2026,0,3856.13,Paid,,,,04/22/2026,51,08/19/2026
+SMT-01,Smarteletec - NumeroEsim,March 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,03/13/2026,,3/13/2026,0,3672.50,Paid,,,,04/02/2026,20,08/19/2026
+GSL-04,Golden Scent LLC - Moontech,March 2026 Performance (ROAS Campaign M4),,Milestone-4,03/13/2026,,3/13/2026,0,18362.50,Paid,,,,03/24/2026,11,08/19/2026
+FAS-01,Fons and Splendor (Pure N Bio) - Moontech,April 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,04/07/2026,,4/7/2026,0,3672.50,Paid,,,,04/09/2026,2,08/19/2026
+RTB-03,KITOPI CATERING SERVICES LLC - Right Bite,March 2026 Performance ROAS Campaign M3,,Milestone-3,04/21/2026,,4/21/2026,0,11568.38,Paid,,,,05/15/2026,24,08/19/2026
+AAL-01,Abwntya Alarbyt Ltqnyt Almalwmat Co - Oneshot,April 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,04/24/2026,,4/24/2026,0,3672.50,Paid,,,,05/07/2026,13,08/19/2026
+GSL-05,Golden Scent LLC - Moontech,April 2026 Performance (ROAS Campaign M5),,Milestone-5,04/27/2026,,4/27/2026,114,18362.50,Unconfirmed,,,,,,08/19/2026
+AYF-01,Al Yasra Fashion General Trading Company - DKNY,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/13/2026,,5/13/2026,0,3672.50,Paid,,,,05/19/2026,6,08/19/2026
+AYF-02,Al Yasra Fashion General Trading Company - Allbirds,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/19/2026,,5/19/2026,0,3672.50,Paid,,,,05/19/2026,0,08/19/2026
+AYF-03,Al Yasra Fashion General Trading Company - Kizik,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/19/2026,,5/19/2026,0,3672.50,Paid,,,,05/19/2026,0,08/19/2026
+IZI-01,Izil Cosmetics Trading LLC - Moontech,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/25/2026,,5/25/2026,0,31500.00,Paid,,,,07/31/2026,67,08/19/2026
+AWG-01,AMAANI WELLNESS GENERAL TRADING L.L.C,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/25/2026,,5/25/2026,0,3856.13,Paid,,,,05/25/2026,0,08/19/2026
+RTB-04,KITOPI CATERING SERVICES LLC - Right Bite,June 2026 Performance (ROAS Campaign M4),,Milestone-4,06/02/2026,,6/2/2026,0,19280.63,Paid,,,,06/17/2026,15,08/19/2026
+TEC-01,The Elite Cars International Commercial Agencies,June 2026 Performance (CPL Campaign Stage 1),New Brand,Stage 1,06/04/2026,,6/4/2026,0,3856.13,Paid,,,,06/09/2026,5,08/19/2026
+MST-01,Maison Safka Technology Company,June 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,06/04/2026,,6/4/2026,0,3672.50,Paid,,,,06/04/2026,0,08/19/2026
+ARM-01,Arte Madrid - MT,June 2026 Performance Marketing,New Brand,Milestone-1,06/26/2026,,6/26/2026,0,3672.50,Paid,,,,06/30/2026,4,08/19/2026
+MST-02,Maison Safka Technology Company,July 2026 Performance (ROAS Campaign M2),,Milestone-2,07/08/2026,,7/8/2026,0,7345.00,Paid,,,,07/14/2026,6,08/19/2026
+JSH-05,Justhype,July 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,07/08/2026,,7/8/2026,0,3856.13,Paid,,,,07/08/2026,0,08/19/2026
+RTB-05,KITOPI CATERING SERVICES LLC - Right Bite,July 2026 Performance (ROAS Campaign M5),,Milestone-5,07/09/2026,,7/9/2026,0,28920.94,Paid,,,,08/04/2026,26,08/19/2026
+REF-01,Reefi -MT,July 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,07/09/2026,,7/9/2026,0,3672.50,Paid,,,,07/20/2026,11,08/19/2026`;
+  const res=Papa.parse(csv,{header:true,skipEmptyLines:true});
+  ingest(res.data,res.meta.fields,"Sample data (screenshot)","sample");
+  // ingest() sets the status bar, so the real reason must be written AFTER it
+  if(reason){ setStatus(reason.kind, reason.msg);
+    document.getElementById("diag").innerHTML=reason.detail?`<span>${reason.detail}</span>`:""; }
+  else if(!silent) setStatus("sample","Sample data · "+STATE.rows.length+" rows — configure CONFIG for live");
+}
+</script>
+</body>
+</html>
