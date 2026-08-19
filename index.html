@@ -23,7 +23,7 @@
 <script>
 const CONFIG = {
   // (A) Paste a "Publish to web -> CSV" link here, OR
-  SHEET_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTN4F4HrbFaylUihY5v3JQ6cG8nFwpkQgpfn-zndurG2WGEKAY011cll7OwYJGuR3_wqV76pjSkG14x/pub?gid=634629514&single=true&output=csv",
+  SHEET_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTN4F4HrbFaylUihY5v3JQ6cG8nFwpkQgpfn-zndurG2WGEKAY011cll7OwYJGuR3_wqV76pjSkG14x/pubhtml?gid=634629514&single=true",
 
   // (B) ...fill these two and leave SHEET_CSV_URL empty to use gviz:
   FILE_ID: "",          // e.g. "1_0NE-izVl7V4VzdTp9qdjhx24X9r4c7TeLPeWGrsqyE"
@@ -481,9 +481,12 @@ function computeARPA(clients){
   const excluded=clients.filter(c=> c.hasPaid && !c.paidLevel).length;
   for(const c of qualifying){
     let aed, basis;
+    const roasPaid=c.paid.filter(i=>i.mile).reduce((s,i)=>s+i.total,0);
     if(!c.paidLevel){ aed=c.totalPaid; basis="Spend to date (no ROAS)"; }
-    else if(c.paidLevel<=2){ aed=c.totalPaid; basis="Spend to date"; }
-    else { const amt=c.latestPaid?c.latestPaid.total:0; aed=amt*12; basis="Latest paid × 12"; }
+    else if(c.paidLevel<=2){ aed=roasPaid; basis=roasPaid<c.totalPaid?"ROAS spend to date":"Spend to date"; }
+    else { const latestRoas=c.paid.filter(i=>i.mile&&i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
+      const amt=latestRoas?latestRoas.total:0; aed=amt*12; basis="Latest paid × 12";
+      rowsWork.push({name:c.name, level:c.paidLevel, basis, aed, usd:aed/peg, latest:latestRoas}); continue; }
     rowsWork.push({name:c.name, level:c.paidLevel, basis, aed, usd:aed/peg, latest:c.latestPaid});
   }
   const arpa = rowsWork.length ? rowsWork.reduce((s,r)=>s+r.usd,0)/rowsWork.length : 0;
