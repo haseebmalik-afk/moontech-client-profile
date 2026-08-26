@@ -66,7 +66,7 @@ html{-webkit-text-size-adjust:100%}
 body{
   margin:0; background:var(--bg); color:var(--ink);
   font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  font-weight:400; line-height:1.45; -webkit-font-smoothing:antialiased;
+  font-weight:400; line-height:1.45; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; -moz-osx-font-smoothing:grayscale;
   font-feature-settings:"tnum" 1, "cv05" 1;
   transition:background .3s, color .3s;
 }
@@ -199,7 +199,12 @@ input.field::placeholder{color:var(--ink-faint)}
 .bpill{font-size:11.5px; background:var(--panel2); border:1px solid var(--line-strong); border-radius:8px; padding:4px 9px; color:var(--ink)}
 .acqtotal{border-top:2px solid var(--line-strong); margin-top:6px; padding-top:11px; display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft)}
 
-.aging{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:2px}
+.aging{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:12px}
+.aging-head{display:flex; justify-content:space-between; gap:16px; padding:14px 16px; border:1px solid var(--line); border-radius:13px; background:var(--panel2)}
+.aging-head .al{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint)}
+.aging-head .av{font-size:23px; margin-top:6px; color:var(--ink)}
+.aging-head .cur{font-size:12px; color:var(--ink-faint); margin-right:2px}
+.aging-head .ac{font-size:11px; color:var(--ink-faint); margin-top:4px}
 .agebox{border:1px solid var(--line); border-radius:13px; padding:14px; background:var(--panel2)}
 .agebox .al{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint)}
 .agebox .av{font-size:20px; margin-top:8px; color:var(--ink)}
@@ -260,10 +265,14 @@ tbody tr:hover{background:var(--indigo-soft)}
 @media (prefers-reduced-motion:reduce){ *{transition:none!important; animation:none!important} }
 
 /* let the animated sky show faintly through cards */
-.panel{background:color-mix(in srgb, var(--panel-solid) 82%, transparent)!important}
-.tile{background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, color-mix(in srgb, var(--panel-solid) 80%, transparent)) 0%, color-mix(in srgb, var(--panel-solid) 80%, transparent) 46%)!important}
-.dbar,.tab{background:color-mix(in srgb, var(--panel-solid) 80%, transparent)!important}
-.client{background:color-mix(in srgb, var(--panel-solid) 78%, transparent)}
+.panel{background:color-mix(in srgb, var(--panel-solid) 93%, transparent)!important}
+.tile{background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, color-mix(in srgb, var(--panel-solid) 92%, transparent)) 0%, color-mix(in srgb, var(--panel-solid) 92%, transparent) 46%)!important}
+.dbar,.tab{background:color-mix(in srgb, var(--panel-solid) 92%, transparent)!important}
+.client{background:color-mix(in srgb, var(--panel-solid) 93%, transparent)}
+.dropbtn{font:inherit;font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:transparent;color:var(--ink-soft);transition:.15s;white-space:nowrap}
+.dropbtn:hover{border-color:var(--red);color:var(--red)}
+.dropbtn.on{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.droppedrow td{opacity:.72}
 </style>
 </head>
 <body>
@@ -332,7 +341,7 @@ tbody tr:hover{background:var(--indigo-soft)}
       <div class="panel">
         <h2>Collections &amp; ageing</h2>
         <p class="lede">Invoiced, not yet paid or cancelled, by days past due (AED, gross).</p>
-        <div class="aging" id="aging" style="grid-template-columns:repeat(2,1fr)"></div>
+        <div id="aging"></div>
       </div>
     </section>
   </section>
@@ -433,7 +442,7 @@ function buildMap(headers){
   return map;
 }
 
-let STATE = { rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all" };
+let STATE = { rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", dropped:new Set() };
 
 /* USD value of one invoice for ARPA: $ Amount column when present, else
    AED Total / peg; stripped of VAT when the VAT column says Included. */
@@ -509,11 +518,17 @@ function computeARPA(clients){
       usd=c.paid.reduce((s,i)=>s+usdNet(i),0); basis="Spend to date (CPL — included)";
     } else if(c.paidLevel<=2){
       usd=roasPaid.reduce((s,i)=>s+usdNet(i),0); basis="ROAS spend to date";
+    } else if(STATE.dropped.has(c.name)){
+      // Dropped: no longer growing — take YTD paid ROAS spend as-is (not annualised)
+      const yr=STATE.today.getFullYear();
+      const ytd=roasPaid.filter(i=>i.invDate && i.invDate.getFullYear()===yr);
+      usd=(ytd.length?ytd:roasPaid).reduce((s,i)=>s+usdNet(i),0); basis="Dropped · YTD spend";
     } else {
       latest=roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
       usd=(latest?usdNet(latest):0)*12; basis="Latest paid × 12";
     }
-    rowsWork.push({name:c.name, level:c.paidLevel, basis, usd, latest,
+    rowsWork.push({name:c.name, level:c.paidLevel, basis, usd, latest, dropped:STATE.dropped.has(c.name),
+      canDrop:c.paidLevel>2,
       vatTouched: (c.paidLevel?roasPaid:c.paid).some(i=>i.vatInc)});
   }
   const arpa = rowsWork.length ? rowsWork.reduce((s,r)=>s+r.usd,0)/rowsWork.length : 0;
@@ -754,16 +769,27 @@ function renderAcqLog(acq){
 
 function renderAging(rows, today){
   const open=rows.filter(r=>!r.isPaid && !r.isCancelled);
-  const buckets=[{l:"Current",cls:"",min:-1e9,max:0},{l:"1–30 days",cls:"",min:1,max:30},
+  const totalOpen=open.reduce((s,r)=>s+r.total,0);
+  const overdue=open.filter(r=>r.pastDue>0);
+  const overdueAmt=overdue.reduce((s,r)=>s+r.total,0);
+  const buckets=[{l:"Not yet due",cls:"",min:-1e9,max:0},{l:"1–30 days",cls:"",min:1,max:30},
     {l:"31–60 days",cls:"warn",min:31,max:60},{l:"60+ days",cls:"bad",min:61,max:1e9}];
   const el=document.getElementById("aging");
-  el.innerHTML=buckets.map(b=>{
+  const head=`<div class="aging-head">
+      <div><div class="al">Pending payment</div><div class="av"><span class="cur">AED</span> <span class="num">${Math.round(totalOpen).toLocaleString("en-US")}</span></div>
+        <div class="ac">${open.length} open invoice${open.length===1?"":"s"}</div></div>
+      <div style="text-align:right"><div class="al">of which overdue</div><div class="av" style="color:var(--red)"><span class="cur">AED</span> <span class="num">${Math.round(overdueAmt).toLocaleString("en-US")}</span></div>
+        <div class="ac">${overdue.length} past due</div></div>
+    </div>`;
+  const grid=`<div class="aging">`+buckets.map(b=>{
     const rs=open.filter(r=>r.pastDue>=b.min && r.pastDue<=b.max);
     const amt=rs.reduce((s,r)=>s+r.total,0);
     return `<div class="agebox ${b.cls}"><div class="al">${b.l}</div>
       <div class="av"><span class="cur" style="font-size:12px;color:var(--ink-faint)">AED</span> <span class="num">${Math.round(amt).toLocaleString("en-US")}</span></div>
       <div class="ac">${rs.length} invoice${rs.length===1?"":"s"}</div></div>`;
-  }).join("");
+  }).join("")+`</div>`;
+  el.innerHTML = open.length ? head+grid
+    : `<p class="hint">Nothing pending — every invoiced amount in this period is settled or cancelled.</p>`;
 }
 
 function moonPhases(level){
@@ -776,16 +802,23 @@ function moonPhases(level){
 function renderARPAWork(A){
   const el=document.getElementById("arpaWork");
   if(!A.rows.length){ el.innerHTML=`<p class="hint">No qualifying paid ROAS clients.</p>`; return; }
-  el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Net value ($)</th><th style="text-align:right">ARPA ($)</th></tr></thead>
+  el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Net value ($)</th><th style="text-align:right">ARPA ($)</th><th>Status</th></tr></thead>
     <tbody>${A.rows.map(r=>{
       const base=r.basis.startsWith("Latest")&&r.latest?usdNet(r.latest):r.usd;
-      return `<tr><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">CPL</span>'}</td>
+      const ctrl = r.canDrop
+        ? `<button class="dropbtn ${r.dropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.dropped?'Dropped ✓':'Mark dropped'}</button>`
+        : `<span class="hint">—</span>`;
+      return `<tr class="${r.dropped?'droppedrow':''}"><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">CPL</span>'}</td>
       <td class="hint" style="letter-spacing:0;text-transform:none">${r.basis}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}${r.vatTouched?' · VAT netted':''}</td>
       <td style="text-align:right" class="mono">${F.usd(base)}</td>
-      <td style="text-align:right" class="mono">${F.usd(r.usd)}</td></tr>`;}).join("")}
+      <td style="text-align:right" class="mono">${F.usd(r.usd)}</td><td>${ctrl}</td></tr>`;}).join("")}
     <tr style="border-top:2px solid var(--line-strong)"><td colspan="4" style="text-align:right;color:var(--ink-soft)">Average ARPA</td>
       <td style="text-align:right" class="mono">${F.usd(A.arpa)}</td></tr></tbody></table>
-    ${A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone and not on the approved list.</p>`:""}`;
+    ${A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone and not on the approved list.</p>`:""}
+    <p class="hint" style="margin-top:8px">"Mark dropped" is available for brands past Milestone-2: it stops annualising their latest invoice and uses their year-to-date paid spend instead.</p>`;
+  el.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{
+    const k=b.dataset.brand; if(STATE.dropped.has(k)) STATE.dropped.delete(k); else STATE.dropped.add(k); render();
+  }));
 }
 
 function renderVelocity(clients, today){
@@ -901,9 +934,14 @@ const SKY=(()=>{
       hue:Math.random()<.35?[190,255,170]:[255,224,140],
       flash:0, r:1.1+Math.random()*1.1 });
   function size(){
-    W=c.width=innerWidth; H=c.height=innerHeight;
+    const dpr=Math.min(2, window.devicePixelRatio||1);
+    W=innerWidth; H=innerHeight;
+    c.width=W*dpr; c.height=H*dpr; c.style.width=W+"px"; c.style.height=H+"px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
     const hdr=document.querySelector("header.top");
-    HW=hc.width=hdr.offsetWidth; HH=hc.height=hdr.offsetHeight;
+    HW=hdr.offsetWidth; HH=hdr.offsetHeight;
+    hc.width=HW*dpr; hc.height=HH*dpr; hc.style.width=HW+"px"; hc.style.height=HH+"px";
+    hctx.setTransform(dpr,0,0,dpr,0,0);
     seedAll(); if(reduced) draw();
   }
   function seedAll(){
@@ -1008,7 +1046,7 @@ function setupControls(){
   ta.addEventListener("click",e=>{ const it=e.target.closest(".item"); if(!it) return;
     search.value=it.dataset.v; STATE.query=it.dataset.v; ta.classList.remove("open"); render(); });
   document.addEventListener("click",e=>{ if(!e.target.closest(".search-wrap")) ta.classList.remove("open"); });
-  document.getElementById("resetBtn").onclick=()=>{ search.value=""; STATE.query=""; STATE.leads=75; STATE.ledgerFilter="all";
+  document.getElementById("resetBtn").onclick=()=>{ search.value=""; STATE.query=""; STATE.leads=75; STATE.ledgerFilter="all"; STATE.dropped=new Set();
     document.querySelectorAll("#ledgerFilter button").forEach(b=>b.classList.toggle("on",b.dataset.f==="all"));
     STATE.month=F.ym(STATE.today); document.getElementById("monthSel").value=STATE.month; render(); };
   document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
