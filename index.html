@@ -1,56 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Moontech Client Profile</title>
 
 <!-- ============================================================= -->
-<!--  DATA SOURCE CONFIG  —  the only thing you edit to go live.    -->
-<!--                                                                 -->
-<!--  This page reads a Google Sheet directly. A static page can    -->
-<!--  only read a sheet that is exposed as CSV. Two ways:           -->
-<!--                                                                 -->
-<!--  (A) File > Share > Publish to web > (pick the tab) > CSV.     -->
-<!--      Paste that URL below. Best for "live" — it auto-updates.  -->
-<!--                                                                 -->
-<!--  (B) Or set the sheet to "Anyone with the link (Viewer)" and   -->
-<!--      use the gviz endpoint below (fill in FILE_ID + GID).      -->
-<!--                                                                 -->
-<!--  Point it at the RECEIVABLES sheet (the tab whose columns      -->
-<!--  match: Invoice, Client Name, ... Todays Date), NOT the model. -->
+<!--  DATA SOURCE CONFIG — live CSV link is embedded below.         -->
+<!--  To repoint: File > Share > Publish to web > (tab) > CSV,      -->
+<!--  replace SHEET_CSV_URL. The URL must end in output=csv.        -->
 <!-- ============================================================= -->
 <script>
 const CONFIG = {
-  // (A) Paste a "Publish to web -> CSV" link here, OR
   SHEET_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTN4F4HrbFaylUihY5v3JQ6cG8nFwpkQgpfn-zndurG2WGEKAY011cll7OwYJGuR3_wqV76pjSkG14x/pub?gid=634629514&single=true&output=csv",
 
-  // (B) ...fill these two and leave SHEET_CSV_URL empty to use gviz:
-  FILE_ID: "",          // e.g. "1_0NE-izVl7V4VzdTp9qdjhx24X9r4c7TeLPeWGrsqyE"
-  GID:     "",          // the tab's gid (number after gid= in the sheet URL)
+  AED_PER_USD: 3.6725,  // fallback only — ARPA reads the sheet's $ Amount column
+  VAT_RATE: 0.05,       // stripped from $ amounts marked "VAT Included" in ARPA
 
-  AED_PER_USD: 3.6725,  // ARPA conversion. Change here if the peg ever moves.
+  /* Brands included in ARPA even without a ROAS milestone (approved anomalies). */
+  ARPA_INCLUDE_BRANDS: ["Jetour"],
 
-  /* Brand display names. The brand is normally taken from the text after the
-     last dash in the trade-licence name ("… Agencies - Jetour MT" -> "Jetour").
-     Anything that doesn't follow that pattern can be forced here. Match on any
-     distinctive fragment of the Client Name (case-insensitive). Grouping is
-     unaffected — this only changes the label shown on screen. */
-  BRAND_OVERRIDES: {
-    "elite cars": "Jetour"
-  },
+  BRAND_OVERRIDES: { "elite cars": "Jetour" },
 
-  /* ARPA universe: "roas" = only clients with a paid ROAS milestone (matches
-     the Unit Economics model). "all" = every paid client, including CPL /
-     influencer campaigns. Switchable on screen too. */
-  ARPA_UNIVERSE: "roas",
-  ACQUISITION_START: "2025-10-01", // Paid-brands "since" date
-  CONVERSION_START:  "2026-02-01", // Sales-conversion "since" date
-  REFRESH_SECONDS: 0    // set e.g. 300 to auto re-fetch every 5 min; 0 = off
+  ACQUISITION_START: "2025-10-01",
+  CONVERSION_START:  "2026-02-01",
+  REFRESH_SECONDS: 0
 };
-function gvizUrl(){ return CONFIG.FILE_ID && CONFIG.GID
-  ? `https://docs.google.com/spreadsheets/d/${CONFIG.FILE_ID}/gviz/tq?tqx=out:csv&gid=${CONFIG.GID}` : ""; }
-function activeUrl(){ return CONFIG.SHEET_CSV_URL || gvizUrl(); }
+function activeUrl(){ return CONFIG.SHEET_CSV_URL; }
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -58,35 +34,54 @@ function activeUrl(){ return CONFIG.SHEET_CSV_URL || gvizUrl(); }
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#0a0d1c; --panel:#12172b; --panel2:#171d36; --ink:#e9ebf8; --ink-soft:#a8adcf; --ink-faint:#6d7398;
+/* ============ THEMES ============ */
+:root, [data-theme="dark"]{
+  --bg:#0a0d1c; --panel:#12172bcc; --panel-solid:#12172b; --panel2:#171d36; --ink:#e9ebf8; --ink-soft:#a8adcf; --ink-faint:#6d7398;
   --line:#20264a; --line-strong:#2c3462;
   --indigo:#6c63ff; --indigo-soft:rgba(108,99,255,.14); --indigo-ink:#aca6ff;
   --green:#34d399; --green-soft:rgba(52,211,153,.13); --amber:#fbbf24; --amber-soft:rgba(251,191,36,.12); --red:#f87171; --red-soft:rgba(248,113,113,.13);
-  /* tile accent colours (top edge) */
   --a-mint:#34d399; --a-sky:#60a5fa; --a-lilac:#a78bfa; --a-rose:#fb7185; --a-peach:#fb923c; --a-cream:#facc15; --a-pink:#f472b6;
+  --hatchbg:#262c52; --hatchfg:#8079ef; --grid:#20264a; --seldot:#cfd3f5;
+  --hd1:#151038; --hd2:#221a66; --hd3:#33279e;
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
   --shadow-lift:0 2px 8px rgba(0,0,0,.4), 0 18px 44px rgba(108,99,255,.18);
+  --check-bg:rgba(251,191,36,.12); --check-bd:rgba(251,191,36,.35); --check-ink:#fcd34d; --diag:#fca5a5;
+  --radius:16px;
+}
+[data-theme="light"]{
+  --bg:#f3f4fb; --panel:#ffffffd9; --panel-solid:#ffffff; --panel2:#f7f8fe; --ink:#1e2138; --ink-soft:#5a5f7e; --ink-faint:#9096b4;
+  --line:#e8eaf5; --line-strong:#d9dcef;
+  --indigo:#4f46e5; --indigo-soft:#eef0ff; --indigo-ink:#3b32c4;
+  --green:#16a34a; --green-soft:#e9f7ef; --amber:#d97706; --amber-soft:#fdf3e3; --red:#dc2626; --red-soft:#fdecec;
+  --a-mint:#10b981; --a-sky:#3b82f6; --a-lilac:#8b5cf6; --a-rose:#f43f5e; --a-peach:#f97316; --a-cream:#eab308; --a-pink:#ec4899;
+  --hatchbg:#e3e1fb; --hatchfg:#8079ef; --grid:#eceef6; --seldot:#1b1650;
+  --hd1:#2b2380; --hd2:#4038c7; --hd3:#6c63ff;
+  --shadow:0 1px 2px rgba(30,33,56,.04), 0 8px 24px rgba(30,33,56,.06);
+  --shadow-lift:0 2px 6px rgba(30,33,56,.08), 0 18px 40px rgba(79,70,229,.12);
+  --check-bg:#fdf3e3; --check-bd:#f3e2c2; --check-ink:#8a5a08; --diag:#a3341f;
   --radius:16px;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
-  margin:0; background:radial-gradient(1200px 600px at 80% -10%, #141a3a 0%, var(--bg) 55%) fixed, var(--bg); color:var(--ink);
+  margin:0; background:var(--bg); color:var(--ink);
   font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   font-weight:400; line-height:1.45; -webkit-font-smoothing:antialiased;
   font-feature-settings:"tnum" 1, "cv05" 1;
+  transition:background .3s, color .3s;
 }
+#sky{position:fixed; inset:0; z-index:0; pointer-events:none}
+#hsky{position:absolute; inset:0; pointer-events:none; z-index:0}
 .num{font-variant-numeric:tabular-nums; font-weight:400}
 a{color:inherit}
-.wrap{max-width:1720px; margin:0 auto; padding:22px 26px 60px}
+.wrap{max-width:1720px; margin:0 auto; padding:22px 26px 60px; position:relative; z-index:1}
 
 /* ---------- header ---------- */
 header.top{
   display:flex; align-items:center; gap:22px; flex-wrap:wrap;
   padding:16px 22px; border:1px solid var(--line); color:#fff;
-  background:linear-gradient(120deg,#151038 0%, #221a66 55%, #33279e 100%);
-  border-radius:var(--radius); box-shadow:0 12px 36px rgba(20,14,80,.55); position:sticky; top:14px; z-index:40;
+  background:linear-gradient(120deg,var(--hd1) 0%, var(--hd2) 55%, var(--hd3) 100%);
+  border-radius:var(--radius); box-shadow:0 12px 36px rgba(20,14,80,.45); position:relative;
   overflow:hidden;
 }
 header.top::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:.8;
@@ -116,19 +111,18 @@ header.top .search-wrap svg{stroke:rgba(255,255,255,.5)}
 header.top select.field option{background:#1a1f3d; color:#fff}
 header.top .btn{background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.28); color:#fff}
 header.top .btn:hover{background:rgba(255,255,255,.2); border-color:#fff; color:#fff}
+.themeBtn{width:38px; padding:0!important; font-size:16px; line-height:1}
 .controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
 .ctl{display:flex; flex-direction:column; gap:4px}
 .ctl label{font-size:9.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-faint); padding-left:2px}
-.field{
-  height:38px; border:1px solid var(--line-strong); border-radius:11px; background:var(--panel2);
-  padding:0 12px; font:inherit; font-size:13.5px; color:var(--ink); min-width:120px; transition:.15s;
-}
-.field:focus{outline:none; border-color:var(--indigo); background:var(--panel2); box-shadow:0 0 0 3px var(--indigo-soft)}
+.field{height:38px; border:1px solid var(--line-strong); border-radius:11px; background:var(--panel2);
+  padding:0 12px; font:inherit; font-size:13.5px; color:var(--ink); min-width:120px; transition:.15s;}
+.field:focus{outline:none; border-color:var(--indigo); box-shadow:0 0 0 3px var(--indigo-soft)}
 input.field::placeholder{color:var(--ink-faint)}
 .search-wrap{position:relative}
 .search-wrap .field{min-width:190px; padding-left:32px}
 .search-wrap svg{position:absolute; left:10px; top:11px; width:15px; height:15px; stroke:var(--ink-faint)}
-.typeahead{position:absolute; top:42px; left:0; right:0; background:#1a2040; border:1px solid var(--line-strong);
+.typeahead{position:absolute; top:42px; left:0; right:0; background:var(--panel-solid); border:1px solid var(--line-strong);
   border-radius:12px; box-shadow:var(--shadow-lift); z-index:60; max-height:280px; overflow:auto; display:none}
 .typeahead.open{display:block}
 .typeahead .item{padding:9px 12px; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; gap:10px; color:var(--ink)}
@@ -137,32 +131,40 @@ input.field::placeholder{color:var(--ink-faint)}
 .btn{height:38px; border:1px solid var(--line-strong); background:var(--panel2); border-radius:11px; padding:0 14px;
   font:inherit; font-size:13px; color:var(--ink-soft); cursor:pointer; transition:.15s; white-space:nowrap}
 .btn:hover{border-color:var(--indigo); color:var(--indigo-ink)}
-.btn.solid{background:var(--indigo); border-color:var(--indigo); color:#fff}
-.btn.solid:hover{filter:brightness(1.1)}
+
+/* ---------- report tabs ---------- */
+.tabs{display:flex; gap:8px; margin:16px 0 2px; flex-wrap:wrap; position:sticky; top:12px; z-index:30}
+.tab{border:1px solid var(--line); background:var(--panel); backdrop-filter:blur(8px); color:var(--ink-soft);
+  font:inherit; font-size:12.5px; letter-spacing:.4px; padding:9px 16px; border-radius:12px; cursor:pointer; transition:.15s; box-shadow:var(--shadow)}
+.tab:hover{color:var(--indigo-ink); border-color:var(--indigo)}
+.tab.on{background:var(--indigo); border-color:var(--indigo); color:#fff; box-shadow:0 6px 18px rgba(108,99,255,.35)}
+.report{display:none; animation:fadeUp .25s ease}
+.report.on{display:block}
+@keyframes fadeUp{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
 
 /* ---------- data status bar ---------- */
 .dbar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:14px 0 4px; padding:11px 16px;
-  border:1px solid var(--line); background:var(--panel); border-radius:14px; box-shadow:var(--shadow); font-size:12.5px; color:var(--ink-soft)}
+  border:1px solid var(--line); background:var(--panel); backdrop-filter:blur(8px); border-radius:14px; box-shadow:var(--shadow); font-size:12.5px; color:var(--ink-soft)}
 .dot{width:8px; height:8px; border-radius:50%; flex:none}
-.dot.live{background:var(--green); box-shadow:0 0 8px rgba(52,211,153,.7)}
-.dot.sample{background:var(--amber); box-shadow:0 0 8px rgba(251,191,36,.6)}
-.dot.err{background:var(--red); box-shadow:0 0 8px rgba(248,113,113,.6)}
+.dot.live{background:var(--green); box-shadow:0 0 8px var(--green)}
+.dot.sample{background:var(--amber); box-shadow:0 0 8px var(--amber)}
+.dot.err{background:var(--red); box-shadow:0 0 8px var(--red)}
 .dbar .grow{margin-left:auto; display:flex; gap:9px; align-items:center}
 .dbar input[type=file]{display:none}
 
 /* ---------- KPI tiles ---------- */
 .tiles{display:grid; grid-template-columns:repeat(7,1fr); gap:14px; margin-top:16px}
 .tile{border-radius:var(--radius); border:1px solid var(--line); border-top:3px solid var(--accent,var(--indigo));
-  background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, var(--panel)) 0%, var(--panel) 46%);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, var(--panel-solid)) 0%, var(--panel-solid) 46%);
   padding:17px 18px 15px; box-shadow:var(--shadow);
-  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; position:relative; overflow:hidden; min-height:132px; min-width:0}
-.tile:hover{transform:translateY(-3px); box-shadow:var(--shadow-lift); border-color:var(--line-strong); border-top-color:var(--accent,var(--indigo))}
+  transition:transform .18s ease, box-shadow .18s ease; position:relative; overflow:hidden; min-height:132px; min-width:0}
+.tile:hover{transform:translateY(-3px); box-shadow:var(--shadow-lift)}
 .tile .h{font-size:9.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-soft); display:flex; align-items:center; gap:6px}
-.tile .v{font-size:31px; margin-top:12px; letter-spacing:-.5px; line-height:1; color:#fff}
+.tile .v{font-size:31px; margin-top:12px; letter-spacing:-.5px; line-height:1; color:var(--ink)}
 .tile .cur{font-size:14px; color:var(--ink-faint); margin-right:2px}
 .tile .s{font-size:11.5px; color:var(--ink-soft); margin-top:9px; display:flex; align-items:center; gap:6px; flex-wrap:wrap}
-.chip{font-size:11px; padding:2px 7px; border-radius:20px; background:rgba(255,255,255,.05); border:1px solid var(--line-strong); color:var(--ink-soft)}
-.chip.up{color:var(--green); border-color:rgba(52,211,153,.4)} .chip.down{color:var(--red); border-color:rgba(248,113,113,.4)}
+.chip{font-size:11px; padding:2px 7px; border-radius:20px; background:transparent; border:1px solid var(--line-strong); color:var(--ink-soft)}
+.chip.up{color:var(--green); border-color:var(--green)} .chip.down{color:var(--red); border-color:var(--red)}
 .tile.mint{--accent:var(--a-mint)} .tile.pink{--accent:var(--a-pink)} .tile.lilac{--accent:var(--a-lilac)}
 .tile.cream{--accent:var(--a-cream)} .tile.sky{--accent:var(--a-sky)} .tile.peach{--accent:var(--a-peach)}
 .tile.rose{--accent:var(--a-rose)}
@@ -170,26 +172,24 @@ input.field::placeholder{color:var(--ink-faint)}
   font:inherit; font-size:12px; text-align:center; padding:0 4px; color:var(--ink)}
 
 /* ---------- panels ---------- */
-.grid3{display:grid; grid-template-columns:1.5fr .85fr 1fr; gap:16px; margin-top:16px}
-.grid2b{display:grid; grid-template-columns:1.15fr 1fr; gap:16px; margin-top:16px}
-.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; min-width:0}
+.grid2{display:grid; grid-template-columns:1.6fr 1fr; gap:16px; margin-top:16px}
+.grid2b{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-top:16px}
+.panel{background:var(--panel); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; min-width:0}
 .panel h2{font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; font-weight:500}
 .panel .lede{font-size:12px; color:var(--ink-faint); margin:0 0 16px}
 
-/* combo chart */
 .chart{width:100%; height:270px}
 .chart .bar{transition:.2s; cursor:pointer}
 .chart .bar:hover{opacity:.82}
 .chart text{font-size:10px; fill:var(--ink-faint); font-variant-numeric:tabular-nums}
-.tt{position:fixed; pointer-events:none; background:#1e2447; border:1px solid var(--line-strong); color:#fff; font-size:11.5px; padding:8px 10px;
-  border-radius:9px; opacity:0; transition:opacity .12s; z-index:80; white-space:nowrap; box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.tt{position:fixed; pointer-events:none; background:var(--panel-solid); border:1px solid var(--line-strong); color:var(--ink); font-size:11.5px; padding:8px 10px;
+  border-radius:9px; opacity:0; transition:opacity .12s; z-index:80; white-space:nowrap; box-shadow:var(--shadow-lift)}
 .tt b{font-weight:500}
 .legend{display:flex; gap:16px; font-size:11px; color:var(--ink-soft); margin-top:6px; flex-wrap:wrap}
 .legend i{width:12px; height:3px; display:inline-block; border-radius:2px; margin-right:6px; vertical-align:middle}
 .legend .dotl{width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:6px; vertical-align:middle}
 
-/* acquisition log */
-.acqlog{max-height:292px; overflow:auto; margin:-4px -6px 0; padding:0 6px}
+.acqlog{max-height:340px; overflow:auto; margin:-4px -6px 0; padding:0 6px}
 .acqmonth{border-top:1px solid var(--line); padding:11px 0 9px}
 .acqmonth:first-child{border-top:none}
 .acqmonth .mh{display:flex; justify-content:space-between; align-items:center; margin-bottom:7px}
@@ -199,82 +199,79 @@ input.field::placeholder{color:var(--ink-faint)}
 .bpill{font-size:11.5px; background:var(--panel2); border:1px solid var(--line-strong); border-radius:8px; padding:4px 9px; color:var(--ink)}
 .acqtotal{border-top:2px solid var(--line-strong); margin-top:6px; padding-top:11px; display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft)}
 
-/* aging */
-.aging{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:2px}
+.aging{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:2px}
 .agebox{border:1px solid var(--line); border-radius:13px; padding:14px; background:var(--panel2)}
 .agebox .al{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint)}
-.agebox .av{font-size:20px; margin-top:8px; color:#fff}
+.agebox .av{font-size:20px; margin-top:8px; color:var(--ink)}
 .agebox .ac{font-size:11px; color:var(--ink-faint); margin-top:4px}
-.agebox.warn{background:var(--amber-soft); border-color:rgba(251,191,36,.35)}
-.agebox.bad{background:var(--red-soft); border-color:rgba(248,113,113,.35)}
+.agebox.warn{background:var(--amber-soft); border-color:var(--amber)}
+.agebox.bad{background:var(--red-soft); border-color:var(--red)}
 
-/* tables */
 table{width:100%; border-collapse:collapse; font-size:12.5px}
 th{text-align:left; font-weight:500; color:var(--ink-faint); font-size:10px; letter-spacing:.8px; text-transform:uppercase;
-  padding:8px 10px; border-bottom:1px solid var(--line-strong); cursor:pointer; user-select:none; white-space:nowrap}
-th .arrow{opacity:.4; font-size:9px}
+  padding:8px 10px; border-bottom:1px solid var(--line-strong); user-select:none; white-space:nowrap}
 td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tbody tr:hover{background:rgba(255,255,255,.025)}
+tbody tr:hover{background:var(--indigo-soft)}
 .pill{font-size:11px; padding:3px 9px; border-radius:20px; display:inline-block; white-space:nowrap}
 .pill.green{background:var(--green-soft); color:var(--green)}
 .pill.amber{background:var(--amber-soft); color:var(--amber)}
 .pill.red{background:var(--red-soft); color:var(--red)}
-.pill.grey{background:rgba(255,255,255,.06); color:var(--ink-soft)}
+.pill.grey{background:var(--indigo-soft); color:var(--ink-soft)}
 
-/* moon-phase milestone indicator (brand signature) */
 .phases{display:inline-flex; gap:3px; align-items:center}
-.ph{width:11px; height:11px; border-radius:50%; border:1.5px solid var(--indigo-ink); position:relative; overflow:hidden}
-.ph.on{background:var(--indigo-ink); box-shadow:0 0 6px rgba(172,166,255,.5)} .ph.off{background:transparent}
+.ph{width:11px; height:11px; border-radius:50%; border:1.5px solid var(--indigo-ink); overflow:hidden}
+.ph.on{background:var(--indigo-ink); box-shadow:0 0 6px var(--indigo-soft)} .ph.off{background:transparent}
 .mlabel{font-size:11px; color:var(--ink-soft); margin-left:6px; font-variant-numeric:tabular-nums}
 
-/* ledger */
 .ledger-controls{display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap}
 .seg{display:inline-flex; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:3px}
 .seg button{border:none; background:none; font:inherit; font-size:12px; color:var(--ink-soft); padding:6px 12px; border-radius:8px; cursor:pointer}
-.seg button.on{background:var(--indigo-soft); color:var(--indigo-ink); box-shadow:none}
+.seg button.on{background:var(--indigo-soft); color:var(--indigo-ink)}
 .client{border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; background:var(--panel)}
 .client summary{list-style:none; cursor:pointer; padding:14px 18px; display:grid;
   grid-template-columns:1.7fr .9fr 1fr 1fr .9fr; gap:12px; align-items:center}
 .client summary::-webkit-details-marker{display:none}
-.client summary:hover{background:rgba(255,255,255,.025)}
-.client[open] summary{border-bottom:1px solid var(--line); background:rgba(255,255,255,.025)}
-.cname{font-size:13.5px; color:#fff; display:flex; align-items:center; gap:8px}
+.client summary:hover{background:var(--indigo-soft)}
+.client[open] summary{border-bottom:1px solid var(--line)}
+.cname{font-size:13.5px; color:var(--ink); display:flex; align-items:center; gap:8px}
 .cname .caret{transition:.2s; color:var(--ink-faint)}
 .client[open] .cname .caret{transform:rotate(90deg)}
 .cmeta{font-size:11px; color:var(--ink-faint)}
 .cmeta b{font-weight:400; color:var(--ink); font-size:13px}
 .cbody{padding:6px 18px 16px}
 .cbody table{font-size:12px}
-.cbody th{cursor:default}
 .hint{font-size:11px; color:var(--ink-faint)}
-
-/* ARPA workings toggle */
-.arpa-work{margin-top:14px; border-top:1px solid var(--line); padding-top:14px; display:none}
-.arpa-work.open{display:block}
+.arpa-work{margin-top:14px; border-top:1px solid var(--line); padding-top:14px}
 .mono{font-variant-numeric:tabular-nums}
-
 .footnote{font-size:11px; color:var(--ink-faint); margin-top:28px; text-align:center; line-height:1.7}
-.checks{margin-top:12px; border:1px solid rgba(251,191,36,.35); background:var(--amber-soft); border-radius:14px; padding:12px 16px; font-size:12.5px; color:#fcd34d}
-.diag{margin:8px 4px 0; font-size:12px; color:#fca5a5; line-height:1.6; word-break:break-word}
+.checks{margin-top:12px; border:1px solid var(--check-bd); background:var(--check-bg); border-radius:14px; padding:12px 16px; font-size:12.5px; color:var(--check-ink)}
+.diag{margin:8px 4px 0; font-size:12px; color:var(--diag); line-height:1.6; word-break:break-word}
 .diag:empty{display:none}
 .checks b{font-weight:500}
 .checks ul{margin:7px 0 0; padding-left:18px} .checks li{margin:3px 0}
-.count-anim{transition:none}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:6px}
 ::-webkit-scrollbar-track{background:transparent}
-@media (max-width:1440px){ .tiles{grid-template-columns:repeat(4,1fr)} .grid3{grid-template-columns:1fr 1fr} .grid3 .panel:first-child{grid-column:1/-1} }
-@media (max-width:1080px){ .tiles{grid-template-columns:repeat(3,1fr)} .grid3,.grid2b{grid-template-columns:1fr} }
-@media (max-width:620px){ .tiles{grid-template-columns:repeat(2,1fr)} .aging{grid-template-columns:1fr 1fr}
+@media (max-width:1440px){ .tiles{grid-template-columns:repeat(4,1fr)} .aging{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:1080px){ .tiles{grid-template-columns:repeat(3,1fr)} .grid2,.grid2b{grid-template-columns:1fr} .tabs{top:auto; position:static} }
+@media (max-width:620px){ .tiles{grid-template-columns:repeat(2,1fr)}
   .client summary{grid-template-columns:1fr; gap:6px} .wrap{padding:16px} }
 @media (prefers-reduced-motion:reduce){ *{transition:none!important; animation:none!important} }
+
+/* let the animated sky show faintly through cards */
+.panel{background:color-mix(in srgb, var(--panel-solid) 82%, transparent)!important}
+.tile{background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, color-mix(in srgb, var(--panel-solid) 80%, transparent)) 0%, color-mix(in srgb, var(--panel-solid) 80%, transparent) 46%)!important}
+.dbar,.tab{background:color-mix(in srgb, var(--panel-solid) 80%, transparent)!important}
+.client{background:color-mix(in srgb, var(--panel-solid) 78%, transparent)}
 </style>
 </head>
 <body>
+<canvas id="sky"></canvas>
 <div class="wrap">
 
   <header class="top">
+    <canvas id="hsky"></canvas>
     <div class="brand">
       <div class="moon" aria-hidden="true"></div>
       <div>
@@ -296,6 +293,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         </div>
       </div>
       <button class="btn" id="resetBtn">Reset</button>
+      <button class="btn themeBtn" id="themeBtn" title="Switch theme">☀</button>
     </div>
   </header>
 
@@ -312,86 +310,94 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   </div>
   <p class="diag" id="diag"></p>
 
-  <!-- KPI TILES -->
-  <section class="tiles" id="tiles"></section>
-  <p class="hint" id="periodNote" style="margin:10px 2px 0"></p>
-  <div id="dataChecks"></div>
+  <!-- REPORT NAV -->
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-r="overview">Overview &amp; ARPA</button>
+    <button class="tab" data-r="growth">Growth &amp; Acquisition</button>
+    <button class="tab" data-r="velocity">ROAS Velocity</button>
+    <button class="tab" data-r="ledger">Client Ledger</button>
+  </nav>
 
-  <!-- TREND + ACQUISITION + COLLECTIONS -->
-  <section class="grid3">
-    <div class="panel">
-      <h2>Monthly trend</h2>
-      <p class="lede">Revenue collected each month (bars) against new brands won that month (line).</p>
-      <svg class="chart" id="chart" viewBox="0 0 760 270" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="legend">
-        <span><i style="background:var(--indigo)"></i>Revenue collected (AED)</span>
-        <span><span class="dotl" style="background:var(--green)"></span>New brands won</span>
-        <span style="color:var(--ink-faint)">Hatched bar / dashed line = current month, still in progress</span>
+  <!-- REPORT 1 : OVERVIEW & ARPA -->
+  <section class="report on" id="r-overview">
+    <section class="tiles" id="tiles"></section>
+    <p class="hint" id="periodNote" style="margin:10px 2px 0"></p>
+    <div id="dataChecks"></div>
+    <section class="grid2b">
+      <div class="panel">
+        <h2>ARPA workings <span class="hint" style="text-transform:none;letter-spacing:0"> — audit trail</span></h2>
+        <p class="lede">Paid ROAS clients only (plus approved anomalies). Values from the sheet's $ Amount column, net of <span id="vatLbl"></span>% VAT where marked "VAT Included". ≤ M2 uses ROAS spend to date; &gt; M2 annualises the latest paid ROAS invoice.</p>
+        <div class="arpa-work" id="arpaWork"></div>
       </div>
-    </div>
-    <div class="panel">
-      <h2>Acquisition log</h2>
-      <p class="lede">New brands, dated by their first paid invoice.</p>
-      <div class="acqlog" id="acqlog"></div>
-    </div>
-    <div class="panel">
-      <h2>Collections &amp; ageing</h2>
-      <p class="lede">Invoiced, not yet paid or cancelled, by days past due.</p>
-      <div class="aging" id="aging"></div>
-    </div>
+      <div class="panel">
+        <h2>Collections &amp; ageing</h2>
+        <p class="lede">Invoiced, not yet paid or cancelled, by days past due (AED, gross).</p>
+        <div class="aging" id="aging" style="grid-template-columns:repeat(2,1fr)"></div>
+      </div>
+    </section>
   </section>
 
-  <!-- VELOCITY + ARPA WORKINGS -->
-  <section class="grid2b">
-    <div class="panel">
+  <!-- REPORT 2 : GROWTH -->
+  <section class="report" id="r-growth">
+    <section class="grid2">
+      <div class="panel">
+        <h2>Monthly trend</h2>
+        <p class="lede">Revenue collected each month (bars, AED) against new brands won that month (line).</p>
+        <svg class="chart" id="chart" viewBox="0 0 760 270" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend">
+          <span><i style="background:var(--indigo)"></i>Revenue collected (AED)</span>
+          <span><span class="dotl" style="background:var(--green)"></span>New brands won</span>
+          <span style="color:var(--ink-faint)">Hatched bar / dashed line = current month, still in progress</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Acquisition log</h2>
+        <p class="lede">New brands, dated by their first paid invoice.</p>
+        <div class="acqlog" id="acqlog"></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- REPORT 3 : ROAS VELOCITY -->
+  <section class="report" id="r-velocity">
+    <section class="panel" style="margin-top:16px">
       <h2>ROAS velocity</h2>
       <p class="lede" id="velSummary"></p>
       <div style="overflow-x:auto"><table id="velTable"></table></div>
-    </div>
-    <div class="panel">
-      <h2>ARPA workings <span class="hint" style="text-transform:none;letter-spacing:0"> — audit trail</span></h2>
-      <p class="lede">Per paid ROAS client. ≤ M2 uses spend to date; &gt; M2 annualises the latest paid invoice. Converted at <span id="pegLbl" class="mono"></span> AED/USD.</p>
-      <div class="ledger-controls">
-        <div class="seg" id="arpaUniverse">
-          <button data-u="roas" class="on">ROAS clients</button>
-          <button data-u="all">All paid clients</button>
-        </div>
-        <button class="btn" id="arpaToggle">Show per-client workings</button>
-      </div>
-      <div class="arpa-work" id="arpaWork"></div>
-    </div>
+    </section>
   </section>
 
-  <!-- CLIENT LEDGER -->
-  <section class="panel" style="margin-top:16px">
-    <h2>Client ledger</h2>
-    <p class="lede">Every client's invoices, payment status and current ROAS milestone. Click to expand.</p>
-    <div class="ledger-controls">
-      <div class="seg" id="ledgerFilter">
-        <button data-f="all" class="on">All</button>
-        <button data-f="paid">Has paid</button>
-        <button data-f="outstanding">Outstanding</button>
-        <button data-f="roas">ROAS only</button>
+  <!-- REPORT 4 : CLIENT LEDGER -->
+  <section class="report" id="r-ledger">
+    <section class="panel" style="margin-top:16px">
+      <h2>Client ledger</h2>
+      <p class="lede">Every client's invoices, payment status and current ROAS milestone. Click to expand.</p>
+      <div class="ledger-controls">
+        <div class="seg" id="ledgerFilter">
+          <button data-f="all" class="on">All</button>
+          <button data-f="paid">Has paid</button>
+          <button data-f="outstanding">Outstanding</button>
+          <button data-f="roas">ROAS only</button>
+        </div>
+        <span class="hint" id="ledgerCount"></span>
       </div>
-      <span class="hint" id="ledgerCount"></span>
-    </div>
-    <div id="ledger"></div>
+      <div id="ledger"></div>
+    </section>
   </section>
 
   <div class="footnote" id="footnote"></div>
 </div>
 
 <div class="tt" id="tooltip"></div>
-
 <script>
 /* =====================================================================
-   MOON TECH INTELLIGENCE — computation + render
-   Rules follow the brief literally. Status is read only from
-   "Invoice Status". Milestones only from "ROAS- Milestone". Grouping
-   by exact "Client Name" (so "…- DKNY" and "…- Kizik" stay separate).
+   MOONTECH CLIENT PROFILE — computation + render
+   Status only from "Invoice Status". Milestones only from "ROAS- Milestone".
+   Grouping by the sheet's "Brand Name" column. ARPA reads the "$ Amount"
+   column, net of VAT where the "VAT" column says Included; paid rows only.
    ===================================================================== */
 
-const F = {                         // formatting helpers
+const F = {
   aed: n => "AED " + Math.round(n||0).toLocaleString("en-US"),
   usd: n => "$" + Math.round(n||0).toLocaleString("en-US"),
   int: n => (n||0).toLocaleString("en-US"),
@@ -402,9 +408,9 @@ const F = {                         // formatting helpers
 };
 const parseDate = v => {
   if(!v) return null; v=String(v).trim(); if(!v||/^n\/?a$/i.test(v)) return null;
-  let m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);      // MM/DD/YYYY
+  let m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if(m){ let[_,a,b,y]=m; y=y.length===2?"20"+y:y; return new Date(+y,+a-1,+b); }
-  m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);                       // ISO fallback
+  m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if(m){ return new Date(+m[1],+m[2]-1,+m[3]); }
   const d=new Date(v); return isNaN(d)?null:d;
 };
@@ -412,14 +418,14 @@ const parseAmt = v => { if(v==null) return 0; const n=parseFloat(String(v).repla
 const parseMile = v => { const m=String(v||"").match(/milestone[\s\-]*([1-5])/i); return m?+m[1]:null; };
 const norm = s => String(s||"").trim().toLowerCase().replace(/[\s\-]+/g," ");
 
-// map arbitrary header text to canonical keys
 const HKEYS = {
   invoice:["invoice"], client:["client name"], brandCol:["brand name"], desc:["description"], brand:["brand"],
   mile:["roas milestone","roas- milestone","roas-milestone"], invDate:["invoice date"],
   terms:["payment terms"], due:["due date"], pastDue:["days past due"], total:["total"],
   status:["invoice status"], amend:["ammendment details","amendment details"],
-  remC:["no of reminders till confirmation"], remP:["no of reminders till payment"],
-  payDate:["payment receipt date","payment recepit date","payment reciept date"], daysToPay:["days between invoicing and payment"], today:["todays date","today's date"]
+  vat:["vat"], usd:["$ amount","amount $","usd amount","$amount"],
+  payDate:["payment receipt date","payment recepit date","payment reciept date"],
+  daysToPay:["days between invoicing and payment"], today:["todays date","today's date"]
 };
 function buildMap(headers){
   const map={}; const H=headers.map(norm);
@@ -427,7 +433,14 @@ function buildMap(headers){
   return map;
 }
 
-let STATE = { rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", sort:{key:null,dir:1} };
+let STATE = { rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all" };
+
+/* USD value of one invoice for ARPA: $ Amount column when present, else
+   AED Total / peg; stripped of VAT when the VAT column says Included. */
+function usdNet(i){
+  const gross = i.usd || (i.total / CONFIG.AED_PER_USD);
+  return i.vatInc ? gross / (1 + CONFIG.VAT_RATE) : gross;
+}
 
 function normalizeRows(raw, headers){
   const map = buildMap(headers);
@@ -439,8 +452,6 @@ function normalizeRows(raw, headers){
     return {
       invoice:String(get(r,"invoice")||"").trim(),
       client,
-      // Brand Name column is authoritative. Only fall back to name-splitting
-      // if that column is absent or blank for this row.
       brand: brandCell || brandName(client),
       brandFromSheet: !!brandCell,
       desc:String(get(r,"desc")||"").trim(),
@@ -450,20 +461,19 @@ function normalizeRows(raw, headers){
       due:parseDate(get(r,"due")),
       pastDue:parseAmt(get(r,"pastDue")),
       total:parseAmt(get(r,"total")),
+      usd:parseAmt(get(r,"usd")),
+      vatInc:/includ/i.test(String(get(r,"vat")||"")),
       status, isPaid:/^paid$/i.test(status), isCancelled:/^cancelled$/i.test(status),
-      remP:parseAmt(get(r,"remP")),
       payDate:parseDate(get(r,"payDate")),
       todayRaw:get(r,"today")
     };
   }).filter(r=> r.client || r.invoice);
-  // "Today" = first non-empty Todays Date value; the sheet may also keep
-  // =TODAY() in the header row beside the label; else the real today
   let today=null; for(const r of rows){ const d=parseDate(r.todayRaw); if(d){today=d;break;} }
   if(!today){ for(const h of headers){ const d=parseDate(h); if(d){today=d;break;} } }
   return {rows, today: today || new Date()};
 }
 
-/* ---------- client aggregation ---------- */
+/* ---------- brand aggregation ---------- */
 function byClient(rows){
   const m=new Map();
   for(const r of rows){ const k=r.brand||r.client; if(!k) continue; if(!m.has(k)) m.set(k,[]); m.get(k).push(r); }
@@ -485,26 +495,29 @@ function byClient(rows){
   return out;
 }
 
-/* ---------- ARPA ---------- */
+/* ---------- ARPA (paid rows only, $ net of VAT) ---------- */
 function computeARPA(clients){
-  const peg=CONFIG.AED_PER_USD;
-  const universe = STATE.arpaUniverse || CONFIG.ARPA_UNIVERSE || "roas";
+  const includeList=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
   const rowsWork=[];
-  // paid clients; ROAS-only universe additionally requires a paid ROAS milestone
-  const qualifying=clients.filter(c=> c.hasPaid && (universe==="all" || c.paidLevel));
-  const excluded=clients.filter(c=> c.hasPaid && !c.paidLevel).length;
+  const isAnomaly = c => includeList.includes(String(c.name).toLowerCase());
+  const qualifying=clients.filter(c=> c.hasPaid && (c.paidLevel || isAnomaly(c)));
+  const excluded=clients.filter(c=> c.hasPaid && !c.paidLevel && !isAnomaly(c)).length;
   for(const c of qualifying){
-    let aed, basis;
-    const roasPaid=c.paid.filter(i=>i.mile).reduce((s,i)=>s+i.total,0);
-    if(!c.paidLevel){ aed=c.totalPaid; basis="Spend to date (no ROAS)"; }
-    else if(c.paidLevel<=2){ aed=roasPaid; basis=roasPaid<c.totalPaid?"ROAS spend to date":"Spend to date"; }
-    else { const latestRoas=c.paid.filter(i=>i.mile&&i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
-      const amt=latestRoas?latestRoas.total:0; aed=amt*12; basis="Latest paid × 12";
-      rowsWork.push({name:c.name, level:c.paidLevel, basis, aed, usd:aed/peg, latest:latestRoas}); continue; }
-    rowsWork.push({name:c.name, level:c.paidLevel, basis, aed, usd:aed/peg, latest:c.latestPaid});
+    let usd, basis, latest=null;
+    const roasPaid=c.paid.filter(i=>i.mile);                    // paid ROAS invoices only
+    if(!c.paidLevel){                                            // approved anomaly (e.g. Jetour, CPL)
+      usd=c.paid.reduce((s,i)=>s+usdNet(i),0); basis="Spend to date (CPL — included)";
+    } else if(c.paidLevel<=2){
+      usd=roasPaid.reduce((s,i)=>s+usdNet(i),0); basis="ROAS spend to date";
+    } else {
+      latest=roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
+      usd=(latest?usdNet(latest):0)*12; basis="Latest paid × 12";
+    }
+    rowsWork.push({name:c.name, level:c.paidLevel, basis, usd, latest,
+      vatTouched: (c.paidLevel?roasPaid:c.paid).some(i=>i.vatInc)});
   }
   const arpa = rowsWork.length ? rowsWork.reduce((s,r)=>s+r.usd,0)/rowsWork.length : 0;
-  return {arpa, n:rowsWork.length, universe, excluded, rows:rowsWork.sort((a,b)=>b.usd-a.usd)};
+  return {arpa, n:rowsWork.length, excluded, rows:rowsWork.sort((a,b)=>b.usd-a.usd)};
 }
 
 /* ---------- monthly series ---------- */
@@ -516,19 +529,15 @@ function monthKeysFrom(startISO, endDate){
   return keys;
 }
 function revenueForMonth(rows,key){ return rows.filter(r=>r.isPaid && F.ym(r.payDate)===key).reduce((s,r)=>s+r.total,0); }
-function paidClientsInMonth(rows,key){ const s=new Set(); rows.forEach(r=>{ if(r.isPaid&&F.ym(r.payDate)===key) s.add(r.client); }); return s.size; }
 
-/* new brands (R5): New Brand + >=1 paid; dated by first paid invoice's INVOICE date */
 function newBrandAcquisitions(clients){
   const out=[];
   for(const c of clients){ if(c.isNew && c.firstPaid){ out.push({name:c.name, month:F.ym(c.firstPaid.invDate), date:c.firstPaid.invDate}); } }
   return out;
 }
 
-/* =====================================================================
-   RENDER
-   ===================================================================== */
-let CACHE={}; // for count-up prev values
+/* ===================== RENDER ===================== */
+let CACHE={};
 
 function filteredRows(){
   const q=STATE.query;
@@ -541,7 +550,7 @@ function render(){
   const rows=filteredRows();
   const clients=byClient(rows);
   const today=STATE.today;
-  const selMonth=STATE.month;                       // "ALL" | "Y2025" | "Y2026" | "YYYY-MM"
+  const selMonth=STATE.month;
   const isAll = selMonth==="ALL";
   const yearSel = /^Y(\d{4})$/.test(selMonth) ? +selMonth.slice(1) : null;
   const prevMonth = (isAll||yearSel) ? null :
@@ -557,31 +566,22 @@ function render(){
   const selLabel = isAll ? "Overall" : yearSel ? String(yearSel) : F.ymLabel(selMonth);
   const prevLabel = isAll ? "" : yearSel ? String(yearSel-1) : F.ymLabel(prevMonth);
 
-  /* Period window. Two date anchors are used deliberately:
-       - cash metrics (Revenue)      -> Payment receipt date
-       - billing metrics (Invoiced /
-         Paid / Unpaid / Cancelled)  -> Invoice date  (a billing cohort)
-     So "Revenue" = cash collected in the period, while "Total paid" =
-     of what we billed in the period, how much has been settled. */
   const periodEnd = isAll ? today
     : yearSel ? new Date(yearSel,11,31)
     : (()=>{ const [y,m]=selMonth.split("-").map(Number); return new Date(y,m,0); })();
 
-  document.getElementById("pegLbl").textContent=CONFIG.AED_PER_USD.toFixed(4);
+  document.getElementById("vatLbl").textContent=(CONFIG.VAT_RATE*100).toFixed(0);
   document.getElementById("asOf").textContent="Sheet date: "+F.date(today);
 
-  // ---- KPI values: all scoped to the selected period ----
   const cashSel = rows.filter(r=>r.isPaid && inSel(r.payDate));
   const cashPrev= rows.filter(r=>r.isPaid && inPrev(r.payDate));
   const rev=cashSel.reduce((s,r)=>s+r.total,0);
   const revPrev=cashPrev.reduce((s,r)=>s+r.total,0);
-  const revPct=revPrev? (rev-revPrev)/revPrev*100 : 0;
 
   const billSel = rows.filter(r=>inSel(r.invDate));
   const billPrev= rows.filter(r=>inPrev(r.invDate));
   const sum = a => a.reduce((s,r)=>s+r.total,0);
   const chip = (cur,prev) => { if(isAll||!prev) return null;
-    // A period with no activity is not a "-100%" decline — say so plainly.
     if(!cur) return `<span class="chip">none in ${selLabel}</span>`;
     const p=(cur-prev)/prev*100;
     return `<span class="chip ${p>=0?'up':'down'}">${F.pct(p)}</span> vs ${prevLabel}`; };
@@ -597,26 +597,22 @@ function render(){
   const overdueCount=unpaidRows.filter(r=>r.pastDue>0).length;
   const collectionRate= totalInvoiced? totalPaid/totalInvoiced*100 : 0;
 
-  // new brands: dated by first paid invoice's INVOICE date (R5)
   const acq=newBrandAcquisitions(clients);
   const acqSel=acq.filter(a=>inSel(a.date)).length;
   const acqPrevN=acq.filter(a=>inPrev(a.date)).length;
   const acqSince=acq.filter(a=>a.date>=new Date(CONFIG.ACQUISITION_START));
 
-  // ARPA "as at" period end: only invoices dated on/before the period end count
   const asAtRows=rows.filter(r=>!r.invDate || r.invDate<=periodEnd);
   const A=computeARPA(byClient(asAtRows));
   const prevEnd = isAll ? null : yearSel ? new Date(yearSel-1,11,31)
     : (()=>{ const [y,m]=prevMonth.split("-").map(Number); return new Date(y,m,0); })();
   const APrev = prevEnd ? computeARPA(byClient(rows.filter(r=>!r.invDate || r.invDate<=prevEnd))) : null;
 
-  // sales conversion: brands won since CONVERSION_START, capped at period end
   const convWon=clients.filter(c=>c.isNew && c.hasPaid && c.firstPaid
     && c.firstPaid.invDate>=new Date(CONFIG.CONVERSION_START) && c.firstPaid.invDate<=periodEnd).length;
   const leads=STATE.leads||75;
   const convPct= leads? convWon/leads*100 : 0;
 
-  // ---- KPI tiles ----
   const tiles=[
     {cls:"mint", h:"Revenue collected", cur:"AED", key:"rev", v:rev,
       sub: isAll ? `${F.int(cashSel.length)} receipts all-time`
@@ -638,8 +634,8 @@ function render(){
       sub:`${A.n} paid ROAS brands${APrev&&APrev.arpa?` ${chip(A.arpa,APrev.arpa)||""}`:""} · <span id="convInline">${convPct.toFixed(1)}% conv</span>`}
   ];
   document.getElementById("periodNote").textContent=
-    isAll ? "All-time. Revenue is by payment date; invoiced, paid, unpaid and cancelled are by invoice date."
-    : `${selLabel}. Revenue = cash collected in period (payment date). Invoiced / paid / unpaid / cancelled = billed in period (invoice date). ARPA as at ${F.date(periodEnd>today?today:periodEnd)}.`;
+    isAll ? "All-time. Revenue is by payment date; invoiced, paid, unpaid and cancelled are by invoice date. ARPA in USD, net of VAT where marked."
+    : `${selLabel}. Revenue = cash collected in period (payment date). Invoiced / paid / unpaid / cancelled = billed in period (invoice date). ARPA as at ${F.date(periodEnd>today?today:periodEnd)}, USD net of VAT where marked.`;
   const tilesEl=document.getElementById("tiles");
   tilesEl.innerHTML=tiles.map(t=>`
     <div class="tile ${t.cls}">
@@ -649,7 +645,6 @@ function render(){
     </div>`).join("");
   animateCounts();
 
-  // Contacted-leads input lives inside the ARPA/conversion context — add editable field to pink tile subtitle
   const convInline=document.getElementById("convInline");
   if(convInline){ convInline.innerHTML=`<input class="leads-input" id="leadsInput" type="number" min="0" value="${leads}"> leads → ${convWon} won (${convPct.toFixed(1)}%)`;
     document.getElementById("leadsInput").addEventListener("input",e=>{ STATE.leads=parseInt(e.target.value)||0; render(); }); }
@@ -662,23 +657,21 @@ function render(){
   renderVelocity(clients, today);
   renderLedger(clients);
   document.getElementById("footnote").innerHTML=
-    `Grouping by exact Client Name · status read only from Invoice Status · milestones only from ROAS- Milestone · ARPA converted at ${CONFIG.AED_PER_USD} AED/USD · "today" = ${F.date(today)} from the sheet.`;
+    `Grouping by Brand Name · status read only from Invoice Status · milestones only from ROAS- Milestone · ARPA from the $ Amount column (paid rows only, net of ${(CONFIG.VAT_RATE*100).toFixed(0)}% VAT where marked Included) · "today" = ${F.date(today)} from the sheet.`;
 }
 
-/* count-up animation */
 function animateCounts(){
   document.querySelectorAll("[data-count]").forEach(el=>{
-    const target=parseFloat(el.dataset.count)||0; const isInt=el.dataset.int==="1"; const key=el.dataset.key;
+    const target=parseFloat(el.dataset.count)||0; const key=el.dataset.key;
     const from=CACHE[key]!==undefined?CACHE[key]:0; CACHE[key]=target;
     const dur=650, t0=performance.now();
     const step=now=>{ const p=Math.min(1,(now-t0)/dur); const e=1-Math.pow(1-p,3); const val=from+(target-from)*e;
-      el.textContent=isInt?Math.round(val).toLocaleString("en-US"):Math.round(val).toLocaleString("en-US");
+      el.textContent=Math.round(val).toLocaleString("en-US");
       if(p<1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   });
 }
 
-/* combo chart (hand-rolled SVG) */
 function renderChart(rows, clients, today){
   const svg=document.getElementById("chart");
   const keys=monthKeysFrom(CONFIG.ACQUISITION_START, today);
@@ -690,40 +683,33 @@ function renderChart(rows, clients, today){
   const maxRev=Math.max(...rev,1), maxN=Math.max(...newB,1);
   const bw=iw/keys.length*0.56;
   const x=i=> padL + iw*(i+0.5)/keys.length;
-  const yR=v=> padT+ih - (v/maxRev)*ih;
   const yN=v=> padT+ih - (v/maxN)*ih;
   let g="";
-  // gridlines
   for(let t=0;t<=4;t++){ const gy=padT+ih*t/4; const val=maxRev*(1-t/4);
-    g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#20264a"/>`;
+    g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--grid)"/>`;
     g+=`<text x="${padL-8}" y="${gy+3}" text-anchor="end">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`; }
-  // bars — the final month is still in progress, so it is drawn hatched
   const lastIdx=keys.length-1;
   rev.forEach((v,i)=>{ const h=Math.max(0,(v/maxRev)*ih); const bx=x(i)-bw/2; const by=padT+ih-h;
     const partial = i===lastIdx;
     const sel = keys[i]===STATE.month;
     g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4"
-        fill="${partial?'url(#gp)':'url(#gb)'}" ${sel?'stroke="#cfd3f5" stroke-width="1.5"':''}
+        fill="${partial?'url(#gp)':'url(#gb)'}" ${sel?'stroke="var(--seldot)" stroke-width="1.5"':''}
         data-k="${keys[i]}" data-rev="${v}" data-nb="${newB[i]}" data-partial="${partial?1:0}"/>`; });
-  // month labels (every other if crowded)
   const skip=keys.length>10?2:1;
   keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle"
-    ${k===STATE.month?'fill="#cfd3f5"':''}>${F.ymLabel(k).split(" ")[0]}</text>`; });
-  // "month to date" marker over the final column
+    ${k===STATE.month?'fill="var(--seldot)"':''}>${F.ymLabel(k).split(" ")[0]}</text>`; });
   g+=`<text x="${x(lastIdx)}" y="${padT-4}" text-anchor="middle" font-size="8.5">to date</text>`;
-  // line for new brands — final segment dashed (partial month)
   let path=""; newB.forEach((v,i)=>{ if(i<lastIdx) path+=(i?"L":"M")+x(i)+" "+yN(v)+" "; });
   g+=`<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linejoin="round"/>`;
   if(lastIdx>0) g+=`<path d="M${x(lastIdx-1)} ${yN(newB[lastIdx-1])} L${x(lastIdx)} ${yN(newB[lastIdx])}"
     fill="none" stroke="var(--green)" stroke-width="2.2" stroke-dasharray="4 3" opacity=".65"/>`;
-  newB.forEach((v,i)=>{ g+=`<circle cx="${x(i)}" cy="${yN(v)}" r="3.6" fill="${i===lastIdx?'#0f1430':'#12172b'}" stroke="var(--green)" stroke-width="2"
+  newB.forEach((v,i)=>{ g+=`<circle cx="${x(i)}" cy="${yN(v)}" r="3.6" fill="var(--panel-solid)" stroke="var(--green)" stroke-width="2"
      class="bar" data-k="${keys[i]}" data-rev="${rev[i]}" data-nb="${v}" data-partial="${i===lastIdx?1:0}"/>`; });
   svg.innerHTML=`<defs><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#8b84ff"/><stop offset="100%" stop-color="#5b52f0"/></linearGradient>
       <pattern id="gp" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-        <rect width="6" height="6" fill="#262c52"/><line x1="0" y1="0" x2="0" y2="6" stroke="#8079ef" stroke-width="3"/>
+        <rect width="6" height="6" fill="var(--hatchbg)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--hatchfg)" stroke-width="3"/>
       </pattern></defs>`+g;
-  // tooltip
   const tt=document.getElementById("tooltip");
   svg.querySelectorAll(".bar").forEach(el=>{
     el.addEventListener("mousemove",e=>{ tt.style.opacity=1;
@@ -733,16 +719,11 @@ function renderChart(rows, clients, today){
   });
 }
 
-/* Flags likely sheet mistakes rather than silently splitting a brand in two.
-   Same invoice prefix (AWG-01 / AWG-02) with two different Brand Names almost
-   always means a typo in one of them. */
 function renderDataChecks(rows){
   const el=document.getElementById("dataChecks"); const issues=[];
   const byPrefix=new Map();
   rows.forEach(r=>{ const p=(r.invoice.split("-")[0]||"").trim().toUpperCase(); if(!p) return;
     if(!byPrefix.has(p)) byPrefix.set(p,new Set()); byPrefix.get(p).add(r.brand); });
-  // Near-identical names under one prefix (Aiza / Alza) are almost certainly a
-  // typo. Genuinely different names (DKNY / Kizik) are a real multi-brand client.
   const nearMatch=(a,b)=>{ a=a.toLowerCase(); b=b.toLowerCase(); if(Math.abs(a.length-b.length)>1) return false;
     let d=0; const L=Math.max(a.length,b.length);
     for(let i=0;i<L;i++) if(a[i]!==b[i]) d++;
@@ -752,10 +733,8 @@ function renderDataChecks(rows){
       if(nearMatch(names[i],names[j])) issues.push(`Possible typo: <b>${names[i]}</b> and <b>${names[j]}</b> both appear under invoice prefix ${p} — currently counted as two brands.`); }
   const blanks=rows.filter(r=>!r.brandFromSheet && r.invoice).map(r=>r.invoice);
   if(blanks.length) issues.push(`${blanks.length} row${blanks.length===1?"":"s"} have no Brand Name — falling back to the client name (${blanks.slice(0,6).join(", ")}${blanks.length>6?"…":""}).`);
-  const multi=new Map();
-  rows.forEach(r=>{ if(!r.brand) return; if(!multi.has(r.brand)) multi.set(r.brand,new Set()); multi.get(r.brand).add(r.client); });
-  for(const [b,set] of multi){ if(set.size>1)
-    issues.push(`Brand <b>${b}</b> appears under ${set.size} client names — merged into one brand.`); }
+  const noUsd=rows.filter(r=>r.isPaid && r.mile && !r.usd).length;
+  if(noUsd) issues.push(`${noUsd} paid ROAS row${noUsd===1?"":"s"} have no $ Amount — ARPA fell back to AED ÷ ${CONFIG.AED_PER_USD}.`);
   el.innerHTML = issues.length
     ? `<div class="checks"><b>Data checks</b><ul>${issues.map(i=>`<li>${i}</li>`).join("")}</ul></div>` : "";
 }
@@ -796,15 +775,17 @@ function moonPhases(level){
 
 function renderARPAWork(A){
   const el=document.getElementById("arpaWork");
-  if(!A.rows.length){ el.innerHTML=`<p class="hint">No qualifying paid clients.</p>`; return; }
-  el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Value (AED)</th><th style="text-align:right">ARPA ($)</th></tr></thead>
-    <tbody>${A.rows.map(r=>`<tr><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">non-ROAS</span>'}</td>
-      <td class="hint" style="letter-spacing:0;text-transform:none">${r.basis}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}</td>
-      <td style="text-align:right" class="mono">${Math.round(r.aed).toLocaleString("en-US")}</td>
-      <td style="text-align:right" class="mono">${F.usd(r.usd)}</td></tr>`).join("")}
+  if(!A.rows.length){ el.innerHTML=`<p class="hint">No qualifying paid ROAS clients.</p>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Net value ($)</th><th style="text-align:right">ARPA ($)</th></tr></thead>
+    <tbody>${A.rows.map(r=>{
+      const base=r.basis.startsWith("Latest")&&r.latest?usdNet(r.latest):r.usd;
+      return `<tr><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">CPL</span>'}</td>
+      <td class="hint" style="letter-spacing:0;text-transform:none">${r.basis}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}${r.vatTouched?' · VAT netted':''}</td>
+      <td style="text-align:right" class="mono">${F.usd(base)}</td>
+      <td style="text-align:right" class="mono">${F.usd(r.usd)}</td></tr>`;}).join("")}
     <tr style="border-top:2px solid var(--line-strong)"><td colspan="4" style="text-align:right;color:var(--ink-soft)">Average ARPA</td>
       <td style="text-align:right" class="mono">${F.usd(A.arpa)}</td></tr></tbody></table>
-    ${A.universe==="roas"&&A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone (CPL or influencer campaigns). Switch to "All paid clients" to include them.</p>`:""}`;
+    ${A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone and not on the approved list.</p>`:""}`;
 }
 
 function renderVelocity(clients, today){
@@ -832,7 +813,7 @@ function renderVelocity(clients, today){
   const pctD= activated? Math.round(dropped/activated*100):0;
   const nonRoasPaid=clients.filter(c=>c.hasPaid && !c.paidLevel).length;
   document.getElementById("velSummary").innerHTML=`Dropped <span class="num">${dropped}</span> of <span class="num">${activated}</span> activated (${pctD}%). A brand is "activated" once its Milestone-1 invoice is paid.`
-    + (nonRoasPaid?` <span class="hint">${nonRoasPaid} paid brand${nonRoasPaid===1?"":"s"} not shown — on CPL or influencer campaigns, so no ROAS milestone.</span>`:"");
+    + (nonRoasPaid?` <span class="hint">${nonRoasPaid} paid brand${nonRoasPaid===1?"":"s"} not shown — no ROAS milestone (CPL or influencer campaigns).</span>`:"");
   const t=document.getElementById("velTable");
   t.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>M2 paid?</th><th>Result</th></tr></thead>
     <tbody>${rowsData.map(r=>`<tr><td>${r.name}</td><td class="mono">${F.date(r.m1)}</td>
@@ -874,13 +855,8 @@ function renderLedger(clients){
   if(!list.length) el.innerHTML=`<p class="hint">No clients match this filter.</p>`;
 }
 
-/* Normalise the dash and space characters Sheets stores so brand extraction
-   works whether the separator is a hyphen, en dash, em dash or non-breaking. */
 const tidy = s => String(s||"").replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g,"-").replace(/[\u00a0\u2007\u202f]/g," ").replace(/\s+/g," ").trim();
 const shortName = n => tidy(n).replace(/\s*(l\.?l\.?c\.?-?fz?|llc|fz llc|fze|trading company|company|general trading|- moontech|- mt)\b/gi,"").replace(/\s*-\s*/g," — ").replace(/\s+/g," ").trim() || tidy(n);
-/* Brand = the text after the last dash in the trade-licence name
-   ("The Elite Cars … Agencies - Jetour MT" -> "Jetour"), ignoring Moontech/MT
-   tags. CONFIG.BRAND_OVERRIDES wins over everything. */
 const brandName = n => {
   const t=tidy(n), tl=t.toLowerCase();
   for(const frag in (CONFIG.BRAND_OVERRIDES||{})){ if(tl.includes(frag.toLowerCase())) return CONFIG.BRAND_OVERRIDES[frag]; }
@@ -891,15 +867,123 @@ const brandName = n => {
 };
 const shortDesc = d => d.length>46 ? d.slice(0,44)+"…" : d;
 
-/* =====================================================================
-   CONTROLS + BOOT
-   ===================================================================== */
+/* ===================== TABS / THEME / SKY ===================== */
+function setupTabs(){
+  document.getElementById("tabs").addEventListener("click",e=>{
+    const b=e.target.closest(".tab"); if(!b) return;
+    document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+    document.querySelectorAll(".report").forEach(s=>s.classList.toggle("on", s.id==="r-"+b.dataset.r));
+  });
+}
+function setTheme(t){
+  document.documentElement.dataset.theme=t;
+  document.getElementById("themeBtn").textContent = t==="dark" ? "☀" : "☾";
+  SKY.retint();
+}
+function setupTheme(){
+  document.getElementById("themeBtn").onclick=()=>
+    setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+}
+
+/* Animated sky.
+   Dark: fireflies — wandering warm lights, pulsing glow, rare flash (page + header).
+   Light: a pale sky with faint fixed stars and occasional shooting-star streaks.
+   Header always shows the firefly swarm. Reduced-motion: one static frame. */
+const SKY=(()=>{
+  const c=document.getElementById("sky"), ctx=c.getContext("2d");
+  const hc=document.getElementById("hsky"), hctx=hc.getContext("2d");
+  let flies=[], hflies=[], stars=[], shooters=[], W=0,H=0,HW=0,HH=0, raf=null, cool=0;
+  const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const mode=()=>document.documentElement.dataset.theme||"dark";
+  const mkFly=(w,h)=>({ x:Math.random()*w, y:Math.random()*h,
+      a:Math.random()*Math.PI*2, sp:.18+Math.random()*.35, turn:(Math.random()-.5)*.06,
+      ph:Math.random()*Math.PI*2, ps:.02+Math.random()*.03,
+      hue:Math.random()<.35?[190,255,170]:[255,224,140],
+      flash:0, r:1.1+Math.random()*1.1 });
+  function size(){
+    W=c.width=innerWidth; H=c.height=innerHeight;
+    const hdr=document.querySelector("header.top");
+    HW=hc.width=hdr.offsetWidth; HH=hc.height=hdr.offsetHeight;
+    seedAll(); if(reduced) draw();
+  }
+  function seedAll(){
+    flies=Array.from({length:Math.min(95,Math.round(W*H/16000))},()=>mkFly(W,H));
+    hflies=Array.from({length:Math.max(10,Math.round(HW/90))},()=>mkFly(HW,HH));
+    stars=Array.from({length:Math.min(120,Math.round(W*H/14000))},()=>({
+      x:Math.random()*W, y:Math.random()*H*0.9, r:Math.random()*1.1+.3,
+      ph:Math.random()*Math.PI*2, ps:.006+Math.random()*.02 }));
+    shooters=[];
+  }
+  function stepFly(f,w,h){
+    f.ph+=f.ps;
+    if(reduced) return;
+    f.a+=f.turn + (Math.random()-.5)*.05;
+    f.x+=Math.cos(f.a)*f.sp; f.y+=Math.sin(f.a)*f.sp*.7;
+    if(f.x<-20)f.x=w+20; if(f.x>w+20)f.x=-20; if(f.y<-20)f.y=h+20; if(f.y>h+20)f.y=-20;
+    if(f.flash>0) f.flash-=.04; else if(Math.random()<.0015) f.flash=1;
+  }
+  function drawFly(g,f){
+    const base=.15+.45*Math.abs(Math.sin(f.ph));
+    const a=Math.min(1, base + f.flash*.7);
+    const [r,gr,b]=f.hue;
+    const glow=g.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r*7);
+    glow.addColorStop(0,`rgba(${r},${gr},${b},${a})`);
+    glow.addColorStop(.35,`rgba(${r},${gr},${b},${a*.35})`);
+    glow.addColorStop(1,`rgba(${r},${gr},${b},0)`);
+    g.fillStyle=glow; g.beginPath(); g.arc(f.x,f.y,f.r*7,0,7); g.fill();
+    g.fillStyle=`rgba(255,252,230,${Math.min(1,a+.25)})`;
+    g.beginPath(); g.arc(f.x,f.y,f.r,0,7); g.fill();
+  }
+  function spawnShooter(){
+    const startX=Math.random()*W*0.7;
+    const startY=Math.random()*H*0.4;
+    const ang=Math.PI*0.18 + Math.random()*Math.PI*0.12;      // shallow downward-right
+    const speed=9+Math.random()*7;
+    shooters.push({ x:startX, y:startY, vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed,
+      len:120+Math.random()*140, life:1 });
+  }
+  function drawShooters(){
+    for(let i=shooters.length-1;i>=0;i--){
+      const s=shooters[i];
+      if(!reduced){ s.x+=s.vx; s.y+=s.vy; s.life-=.012; }
+      const tx=s.x - s.vx/Math.hypot(s.vx,s.vy)*s.len;
+      const ty=s.y - s.vy/Math.hypot(s.vx,s.vy)*s.len;
+      const grd=ctx.createLinearGradient(s.x,s.y,tx,ty);
+      const a=Math.max(0,s.life)*.8;
+      grd.addColorStop(0,`rgba(120,110,210,${a})`);
+      grd.addColorStop(1,`rgba(120,110,210,0)`);
+      ctx.strokeStyle=grd; ctx.lineWidth=2; ctx.lineCap="round";
+      ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(tx,ty); ctx.stroke();
+      ctx.fillStyle=`rgba(150,140,235,${a})`; ctx.beginPath(); ctx.arc(s.x,s.y,1.8,0,7); ctx.fill();
+      if(s.life<=0 || s.x>W+50 || s.y>H+50) shooters.splice(i,1);
+    }
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H); hctx.clearRect(0,0,HW,HH);
+    if(mode()==="dark"){
+      for(const f of flies){ stepFly(f,W,H); drawFly(ctx,f); }
+    } else {
+      for(const st of stars){ st.ph+=st.ps;
+        const a=.12+.33*Math.abs(Math.sin(st.ph));
+        ctx.fillStyle=`rgba(120,130,190,${a})`;
+        ctx.beginPath(); ctx.arc(st.x,st.y,st.r,0,7); ctx.fill(); }
+      if(!reduced){ cool--; if(cool<=0 && shooters.length<3){ spawnShooter(); cool=90+Math.random()*160; } }
+      drawShooters();
+    }
+    for(const f of hflies){ stepFly(f,HW,HH); drawFly(hctx,f); }   // header swarm, both themes
+    if(!reduced) raf=requestAnimationFrame(draw);
+  }
+  function start(){ if(raf) cancelAnimationFrame(raf); size(); if(!reduced) raf=requestAnimationFrame(draw); }
+  addEventListener("resize",()=>{ size(); });
+  return { start, retint:()=>{ if(reduced){ draw(); } } };
+})();
+
+/* ===================== CONTROLS + BOOT ===================== */
 function buildMonthSelector(){
   const sel=document.getElementById("monthSel");
   const keys=monthKeysFrom(CONFIG.ACQUISITION_START, STATE.today);
   STATE.months=keys;
   const cur=F.ym(STATE.today);
-  // years present in the data (invoice or payment dates), oldest first
   const yrs=[...new Set(STATE.rows.flatMap(r=>[r.invDate,r.payDate]).filter(Boolean).map(d=>d.getFullYear()))].sort();
   sel.innerHTML=`<option value="ALL">Overall</option>`+
     yrs.map(y=>`<option value="Y${y}">${y}</option>`).join("")+
@@ -930,11 +1014,6 @@ function setupControls(){
   document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
     document.querySelectorAll("#ledgerFilter button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
     STATE.ledgerFilter=b.dataset.f; render(); });
-  document.getElementById("arpaUniverse").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
-    document.querySelectorAll("#arpaUniverse button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
-    STATE.arpaUniverse=b.dataset.u; render(); });
-  document.getElementById("arpaToggle").onclick=e=>{ const w=document.getElementById("arpaWork"); w.classList.toggle("open");
-    e.target.textContent=w.classList.contains("open")?"Hide per-client workings":"Show per-client workings"; };
   document.getElementById("sampleBtn").onclick=()=>loadSample();
   document.getElementById("refreshBtn").onclick=()=>loadFromSheet(true);
   document.getElementById("fileInput").addEventListener("change",e=>{
@@ -961,8 +1040,6 @@ function loadFromSheet(isRefresh){
     detail:"Open this file in a text editor and paste your published CSV link into SHEET_CSV_URL near the top."}); return; }
   diag.textContent="";
   setStatus("sample","Fetching sheet…");
-  // A published CSV link contains /spreadsheets/d/e/…/pub. An /edit link will
-  // not work — flag it before wasting a request.
   if(/\/edit/.test(url) || (!/output=csv/.test(url) && !/tqx=out:csv/.test(url))){
     loadSample(true,{kind:"err", msg:"That link isn't a CSV export — showing sample data.",
       detail:"The URL must end in output=csv (Publish to web → CSV). A normal /edit sheet link won't work. Yours: "+url.slice(0,80)+"…"}); return;
@@ -984,9 +1061,9 @@ function loadFromSheet(isRefresh){
   });
 }
 
-/* boot */
 window.addEventListener("DOMContentLoaded",()=>{
-  setupControls();
+  setupControls(); setupTabs(); setupTheme();
+  SKY.start();
   loadFromSheet(false);
   if(CONFIG.REFRESH_SECONDS>0) setInterval(()=>loadFromSheet(true), CONFIG.REFRESH_SECONDS*1000);
 });
