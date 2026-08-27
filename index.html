@@ -137,7 +137,7 @@ input.field::placeholder{color:var(--ink-faint)}
 .tab{border:1px solid var(--line); background:var(--panel); backdrop-filter:blur(8px); color:var(--ink-soft);
   font:inherit; font-size:12.5px; letter-spacing:.4px; padding:9px 16px; border-radius:12px; cursor:pointer; transition:.15s; box-shadow:var(--shadow)}
 .tab:hover{color:var(--indigo-ink); border-color:var(--indigo)}
-.tab.on{background:var(--indigo); border-color:var(--indigo); color:#fff; box-shadow:0 6px 18px rgba(108,99,255,.35)}
+.tab.on{background:var(--indigo)!important; border-color:var(--indigo); color:#fff; box-shadow:0 6px 18px rgba(108,99,255,.35)}
 .report{display:none; animation:fadeUp .25s ease}
 .report.on{display:block}
 @keyframes fadeUp{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
@@ -267,7 +267,7 @@ tbody tr:hover{background:var(--indigo-soft)}
 /* let the animated sky show faintly through cards */
 .panel{background:color-mix(in srgb, var(--panel-solid) 93%, transparent)!important}
 .tile{background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, color-mix(in srgb, var(--panel-solid) 92%, transparent)) 0%, color-mix(in srgb, var(--panel-solid) 92%, transparent) 46%)!important}
-.dbar,.tab{background:color-mix(in srgb, var(--panel-solid) 92%, transparent)!important}
+.dbar,.tab:not(.on){background:color-mix(in srgb, var(--panel-solid) 92%, transparent)!important}
 .client{background:color-mix(in srgb, var(--panel-solid) 93%, transparent)}
 .dropbtn{font:inherit;font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:transparent;color:var(--ink-soft);transition:.15s;white-space:nowrap}
 .dropbtn:hover{border-color:var(--red);color:var(--red)}
@@ -836,16 +836,21 @@ function renderVelocity(clients, today){
   for(const c of clients){
     const m1paid=c.paid.filter(i=>i.mile===1).sort((a,b)=> (a.payDate||a.invDate)-(b.payDate||b.invDate))[0];
     if(!m1paid || !m1paid.payDate) continue;
-    const m2rows=c.invs.filter(i=>i.mile===2);
-    const m2paid=m2rows.filter(i=>i.isPaid).sort((a,b)=>(a.payDate||0)-(b.payDate||0))[0];
-    const m2cancelledOnly = m2rows.length>0 && m2rows.every(i=>i.isCancelled);
+    // "Reached M2" = any PAID invoice at Milestone-2 OR HIGHER (progression past
+    // the rung counts even if no invoice is literally tagged M2 — e.g. a bundled
+    // "M2 & 3" invoice or a skipped rung).
+    const beyondPaid=c.paid.filter(i=>i.mile>=2).sort((a,b)=>(a.payDate||0)-(b.payDate||0))[0];
+    const m2onlyRows=c.invs.filter(i=>i.mile===2);
+    const m2cancelledOnly = !beyondPaid && m2onlyRows.length>0 && m2onlyRows.every(i=>i.isCancelled);
     const days=Math.floor((today - m1paid.payDate)/86400000);
     const passed30 = days>=30;
     let m2label, result, pill;
-    if(m2paid){
+    if(beyondPaid){
+      const reachedLvl=Math.max(...c.paid.filter(i=>i.mile>=2).map(i=>i.mile));
       let late="";
-      if(m2paid.payDate){ const gap=Math.floor((m2paid.payDate-m1paid.payDate)/86400000); if(gap>30) late=` (late, ${gap}d)`; }
-      m2label=`Yes${late}`; result="Not dropped"; pill="green";
+      if(beyondPaid.payDate){ const gap=Math.floor((beyondPaid.payDate-m1paid.payDate)/86400000); if(gap>30) late=` (late, ${gap}d)`; }
+      m2label = reachedLvl>2 ? `Yes — reached M${reachedLvl}${late}` : `Yes${late}`;
+      result="Not dropped"; pill="green";
     } else if(m2cancelledOnly){ m2label="No (M2 cancelled)"; }
     else { m2label="No"; }
     if(result!=="Not dropped"){ if(!passed30){ result="Pending"; pill="amber"; } else { result="Dropped"; pill="red"; } }
@@ -858,7 +863,7 @@ function renderVelocity(clients, today){
   document.getElementById("velSummary").innerHTML=`Dropped <span class="num">${dropped}</span> of <span class="num">${activated}</span> activated (${pctD}%). A brand is "activated" once its Milestone-1 invoice is paid.`
     + (nonRoasPaid?` <span class="hint">${nonRoasPaid} paid brand${nonRoasPaid===1?"":"s"} not shown — no ROAS milestone (CPL or influencer campaigns).</span>`:"");
   const t=document.getElementById("velTable");
-  t.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>M2 paid?</th><th>Result</th></tr></thead>
+  t.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>Reached M2+?</th><th>Result</th></tr></thead>
     <tbody>${rowsData.map(r=>`<tr><td>${r.name}</td><td class="mono">${F.date(r.m1)}</td>
       <td>${r.passed30?'<span class="pill green">Yes</span>':`<span class="pill grey">No (${r.days}d)</span>`}</td>
       <td>${r.m2label}</td><td><span class="pill ${r.pill}">${r.result}</span></td></tr>`).join("")}</tbody>`;
