@@ -544,7 +544,9 @@ function computeARPA(clients){
   for(const c of qualifying){
     const roasPaid=c.paid.filter(i=>i.mile);
     const dropped=STATE.dropped.has(c.name);
-    let usd, basis, latest=null, refunded=(c.paidLevel?roasPaid:c.paid).some(i=>i.refundUsd||i.refundAed);
+    let usd, basis, latest=null;
+    const relevant=c.paidLevel?roasPaid:c.paid;
+    const refundAmt=relevant.reduce((s,i)=>s+(i.refundUsd||(i.refundAed?i.refundAed/CONFIG.AED_PER_USD:0)),0);
     if(!c.paidLevel){ usd=c.paid.reduce((s,i)=>s+usdNet(i),0); basis="Spend to date (CPL — included)"; }
     else if(c.paidLevel<=2){ usd=roasPaid.reduce((s,i)=>s+usdNet(i),0); basis="ROAS spend to date"; }
     else if(dropped){ const yr=STATE.today.getFullYear();
@@ -552,8 +554,9 @@ function computeARPA(clients){
       usd=(ytd.length?ytd:roasPaid).reduce((s,i)=>s+usdNet(i),0); basis="Dropped · YTD spend"; }
     else { latest=roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
       usd=(latest?usdNet(latest):0)*12; basis="Latest paid × 12"; }
+    const churn = (STATE.churnedBrands&&STATE.churnedBrands.has(normBrand(c.name)));
     rowsWork.push({name:c.name, level:c.paidLevel, basis, usd, latest, dropped, canDrop:c.paidLevel>2,
-      vatTouched:(c.paidLevel?roasPaid:c.paid).some(i=>i.vatInc), refunded});
+      refundAmt, churn});
   }
   const arpa=rowsWork.length? rowsWork.reduce((s,r)=>s+r.usd,0)/rowsWork.length : 0;
   return {arpa, n:rowsWork.length, excluded, rows:rowsWork.sort((a,b)=>b.usd-a.usd)};
@@ -732,15 +735,16 @@ function renderARPAWork(A){
   el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Refund</th><th style="text-align:right">Net value ($)</th><th style="text-align:right">ARPA ($)</th><th>Status</th></tr></thead>
     <tbody>${A.rows.map(r=>{
       const base=r.basis.startsWith("Latest")&&r.latest?usdNet(r.latest):r.usd;
-      const ctrl=r.canDrop?`<button class="dropbtn ${r.dropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.dropped?'Dropped ✓':'Mark dropped'}</button>`:`<span class="hint">—</span>`;
+      const drop=`<button class="dropbtn ${r.dropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.dropped?(r.churn?'Dropped (churn) ✓':'Dropped ✓'):'Mark dropped'}</button>`;
+      const basisClean=r.basis.replace(/\s*·\s*VAT netted/,'');
       return `<tr class="${r.dropped?'droppedrow':''}"><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">CPL</span>'}</td>
-      <td class="hint" style="letter-spacing:0;text-transform:none">${r.basis}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}${r.vatTouched?' · VAT netted':''}</td>
-      <td style="text-align:right" class="mono">${r.refunded?'<span style="color:var(--red)">✓ netted</span>':'—'}</td>
+      <td class="hint" style="letter-spacing:0;text-transform:none">${basisClean}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}</td>
+      <td style="text-align:right" class="mono">${r.refundAmt?('<span style="color:var(--red)">-'+F.usd(r.refundAmt)+'</span>'):'—'}</td>
       <td style="text-align:right" class="mono">${F.usd(base)}</td>
-      <td style="text-align:right" class="mono">${F.usd(r.usd)}</td><td>${ctrl}</td></tr>`;}).join("")}
+      <td style="text-align:right" class="mono">${F.usd(r.usd)}</td><td>${drop}</td></tr>`;}).join("")}
     <tr style="border-top:2px solid var(--line-strong)"><td colspan="5" style="text-align:right;color:var(--ink-soft)">Average ARPA</td><td style="text-align:right" class="mono">${F.usd(A.arpa)}</td><td></td></tr></tbody></table>
     ${A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone and not on the approved list.</p>`:""}
-    <p class="hint" style="margin-top:8px">"Mark dropped" (M3+ only) stops annualising and uses year-to-date paid spend. M1/M2 brands can be dropped in Brand Build without changing ARPA.</p>`;
+    <p class="hint" style="margin-top:8px">Dropping an M3+ brand de-annualises it (uses year-to-date spend); M1/M2 drops flag the brand and remove it from Brand Build. Churned brands (from the Tracker) are auto-dropped — you can override here.</p>`;
   el.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.manualDropped.has(k)?STATE.manualDropped.delete(k):STATE.manualDropped.add(k); applyChurnDrops(); render(); }));
 }
 function renderVelocity(clients,today){
@@ -1102,8 +1106,10 @@ function buildModelRows(){
     const refund=roasPaid.reduce((s,i)=>s+(i.refundUsd||(i.refundAed?i.refundAed/CONFIG.AED_PER_USD:0)),0);
     const unpaid=c.invs.some(i=>!i.isPaid&&!i.isCancelled);
     const status=modelStatus(c, STATE.dropped.has(c.name), today);
+    const tRow=(STATE.tracker||[]).find(t=>normBrand(t.brand)===normBrand(c.name));
+    const trackerStatus = tRow? tRow.status : (STATE.churnedBrands&&STATE.churnedBrands.has(normBrand(c.name))?"Churned":"");
     return {name:c.name, start:startLabel, monthsActive, lvl, moAtLevel, L12, L23, L34,
-      totalSpend, arpa:arpaBy.get(c.name)||0, status, monthly, refund, paid:!unpaid};
+      totalSpend, arpa:arpaBy.get(c.name)||0, status, monthly, refund, paid:!unpaid, trackerStatus};
   });
   // sort by start date then level desc (roughly like the model)
   rowsOut.sort((a,b)=>{ const da=a.start,db=b.start; if(da!==db){ return new Date("1 "+da)-new Date("1 "+db) || 0; } return b.lvl-a.lvl; });
@@ -1114,12 +1120,12 @@ function exportModel(){
   if(!window.XLSX){ alert("Export library still loading — try again in a second."); return; }
   const {rowsOut, monthKeys, today}=buildModelRows();
   const monthHdrs=monthKeys.map(k=>F.ymLabel(k));
-  const headers=["Client","Start","Mo. active","ROAS level","Mo. at level","L1→L2","L2→L3","L3→L4","Total spend","ARPA","Status","Paid?","Refund", ...monthHdrs];
+  const headers=["Client","Start","Mo. active","ROAS level","Mo. at level","L1→L2","L2→L3","L3→L4","Total spend","ARPA","Status","Churn status","Paid?","Refund", ...monthHdrs];
   const aoa=[headers];
   rowsOut.forEach(r=>{
     const mvals=monthKeys.map(k=> r.monthly[k]?Math.round(r.monthly[k]):"");
     aoa.push([r.name, r.start, r.monthsActive, r.lvl||"", r.moAtLevel||"", r.L12??"-", r.L23??"-", r.L34??"-",
-      Math.round(r.totalSpend), Math.round(r.arpa), r.status, r.paid?"Paid":"Unpaid", r.refund?Math.round(r.refund):"", ...mvals]);
+      Math.round(r.totalSpend), Math.round(r.arpa), r.status, r.trackerStatus||"—", r.paid?"Paid":"Unpaid", r.refund?Math.round(r.refund):"", ...mvals]);
   });
   const ws=XLSX.utils.aoa_to_sheet(aoa);
 
@@ -1137,15 +1143,16 @@ function exportModel(){
       if(R===0){ cc.s=HDR; continue; }
       cc.s={font:{sz:10,color:{rgb:"141026"}},border:thin(),alignment:{horizontal: C===0?"left":"center"}};
       if(C>=8&&C<=9){ cc.s.numFmt="#,##0"; cc.s.font.bold=true; }               // total spend + ARPA bold
-      if(C>=13){ cc.s.numFmt="#,##0"; }                                          // monthly grid
+      if(C>=14){ cc.s.numFmt="#,##0"; }                                          // monthly grid
       if(C===0){ cc.s.font.bold=true; }
       if(C===3){ const v=cc.v; if(v&&lvlFill[v]){ cc.s.fill={fgColor:{rgb:lvlFill[v]}}; cc.s.font.bold=true; } } // ROAS level green scale
       if(C===10){ const sc=statusColor[cc.v]; if(sc){ cc.s.fill={fgColor:{rgb:sc[0]}}; cc.s.font={sz:10,bold:true,color:{rgb:sc[1]}}; } }
-      if(C===11){ cc.s.font={sz:10,bold:true,color:{rgb: cc.v==='Paid'?'006100':'9C1B3A'}}; }
-      if(C===12&&cc.v){ cc.s.font={sz:10,color:{rgb:'9C1B3A'}}; cc.s.numFmt="#,##0"; }
+      if(C===11){ const v=String(cc.v); const isCh=/churn/i.test(v); cc.s.font={sz:10,bold:isCh,color:{rgb:isCh?'FFFFFF':/hold/i.test(v)?'7A4B00':/active/i.test(v)?'006100':'6A6A6A'}}; if(isCh)cc.s.fill={fgColor:{rgb:'E4483D'}}; else if(/hold/i.test(v))cc.s.fill={fgColor:{rgb:'FFE9C7'}}; } // churn status
+      if(C===12){ cc.s.font={sz:10,bold:true,color:{rgb: cc.v==='Paid'?'006100':'9C1B3A'}}; }
+      if(C===13&&cc.v){ cc.s.font={sz:10,color:{rgb:'9C1B3A'}}; cc.s.numFmt="#,##0"; }
     }
   }
-  ws['!cols']=[{wch:20},{wch:8},{wch:9},{wch:10},{wch:11},{wch:7},{wch:7},{wch:7},{wch:11},{wch:11},{wch:10},{wch:8},{wch:9},...monthKeys.map(()=>({wch:8}))];
+  ws['!cols']=[{wch:20},{wch:8},{wch:9},{wch:10},{wch:11},{wch:7},{wch:7},{wch:7},{wch:11},{wch:11},{wch:10},{wch:12},{wch:8},{wch:9},...monthKeys.map(()=>({wch:8}))];
   ws['!freeze']={xSplit:1,ySplit:1};
   ws['!rows']=[{hpt:30}];
 
