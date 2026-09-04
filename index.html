@@ -7,6 +7,7 @@
 <script>
 const CONFIG = {
   SHEET_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTN4F4HrbFaylUihY5v3JQ6cG8nFwpkQgpfn-zndurG2WGEKAY011cll7OwYJGuR3_wqV76pjSkG14x/pub?gid=634629514&single=true&output=csv",
+  TRACKER_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEEEIegwsvOyMt4ZKFffwcOyCaPVJhftkr8Wyns6u_32dUbyudrArqFFB3Ac6CjTsaEV3ui1RPoDg8/pub?gid=793116860&single=true&output=csv",
   AED_PER_USD: 3.6725,
   VAT_RATE: 0.05,
   ARPA_TARGET: 24000,               // annualised $ per brand — the Brand Build goal
@@ -25,16 +26,16 @@ function activeUrl(){ return CONFIG.SHEET_CSV_URL; }
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif&display=swap" rel="stylesheet">
 <style>
 :root, [data-theme="dark"]{
-  --bg:#0a0820; --panel:#141033; --panel-solid:#141033; --panel2:#1a1542; --ink:#ece9ff; --ink-soft:#9089c8; --ink-faint:#615aa0;
-  --line:#241e52; --line-strong:#332a70;
-  --indigo:#6c5cff; --indigo-deep:#3E278D; --indigo-soft:rgba(108,92,255,.15); --indigo-ink:#b3a9ff;
-  --mauve:#c579b3; --orange:#FF9500; --orange-soft:rgba(255,149,0,.14);
-  --green:#2fce8f; --green-soft:rgba(47,206,143,.14); --amber:#FF9500; --amber-soft:rgba(255,149,0,.13); --red:#f4685c; --red-soft:rgba(244,104,92,.14);
-  --rail:linear-gradient(180deg,#1b1240 0%,#120c30 100%); --rail-line:#2a2260;
-  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.4);
-  --shadow-lift:0 2px 10px rgba(0,0,0,.5), 0 22px 50px rgba(62,39,141,.3);
-  --grid:#241e52; --seldot:#d8d3ff; --hatchbg:#2a2168; --hatchfg:#6c5cff;
-  --check-bg:var(--amber-soft); --check-bd:rgba(255,149,0,.4); --check-ink:#ffb84d; --diag:#ff9e94;
+  --bg:#1a2036; --panel:#232a44; --panel-solid:#232a44; --panel2:#2a3252; --ink:#eef0fa; --ink-soft:#9aa2c8; --ink-faint:#6f78a0;
+  --line:#333d5e; --line-strong:#414c72;
+  --indigo:#7b74ff; --indigo-deep:#4a3fd6; --indigo-soft:rgba(123,116,255,.16); --indigo-ink:#b3adff;
+  --mauve:#cf87bd; --orange:#FF9F2E; --orange-soft:rgba(255,159,46,.15);
+  --green:#35d693; --green-soft:rgba(53,214,147,.15); --amber:#FF9F2E; --amber-soft:rgba(255,159,46,.14); --red:#f87a6e; --red-soft:rgba(248,122,110,.15);
+  --rail:linear-gradient(180deg,#241d5c 0%,#191343 100%); --rail-line:#352d75;
+  --shadow:0 1px 2px rgba(0,0,0,.35), 0 12px 34px rgba(0,0,0,.32);
+  --shadow-lift:0 2px 10px rgba(0,0,0,.4), 0 22px 50px rgba(74,63,214,.28);
+  --grid:#2f3959; --seldot:#d8d3ff; --hatchbg:#353e63; --hatchfg:#7b74ff;
+  --check-bg:var(--amber-soft); --check-bd:rgba(255,159,46,.42); --check-ink:#ffc074; --diag:#ffa79c;
   --radius:12px;
 }
 [data-theme="light"]{
@@ -278,6 +279,7 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
     <button class="navitem" data-r="build"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M6 21V9l6-4 6 4v12"/><path d="M10 21v-6h4v6"/></svg>Brand Build</button>
     <button class="navitem" data-r="growth"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Growth</button>
     <button class="navitem" data-r="velocity"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>ROAS Velocity</button>
+    <button class="navitem" data-r="integration"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg>Integration</button>
     <button class="navitem" data-r="ledger"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M4 9h16M9 5v14"/></svg>Client Ledger</button>
     <div class="railsec">View</div>
     <button class="navitem" id="themeItem"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg><span id="themeLbl">Light mode</span></button>
@@ -354,8 +356,12 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
           </div>
         </div>
         <div class="wf-slider">
-          <div class="wf-slabel"><span>Promote <b id="wfN">0</b> brand(s) to M3</span><span class="hint" id="wfPool"></span></div>
-          <input type="range" id="wfRange" min="0" value="0" step="1" style="width:100%">
+          <div class="wf-slabel"><span><span class="movetag m1">M1 &#8594; M3</span> promote <b id="wfN1">0</b></span><span class="hint" id="wfPool1"></span></div>
+          <input type="range" id="wfRange1" min="0" value="0" step="1" style="width:100%">
+        </div>
+        <div class="wf-slider">
+          <div class="wf-slabel"><span><span class="movetag m2">M2 &#8594; M3</span> promote <b id="wfN2">0</b></span><span class="hint" id="wfPool2"></span></div>
+          <input type="range" id="wfRange2" min="0" value="0" step="1" style="width:100%">
         </div>
         <svg class="chart" id="wfChart" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="legend">
@@ -399,6 +405,17 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         <h3>ROAS velocity</h3>
         <p class="lede" id="velSummary"></p>
         <div style="overflow-x:auto"><table id="velTable"></table></div>
+      </div>
+    </section>
+
+    <!-- INTEGRATION -->
+    <section class="report" id="r-integration">
+      <div class="bb-head" id="intgHead" style="grid-template-columns:repeat(5,1fr)"></div>
+      <div id="intgFlag"></div>
+      <div class="panel" style="margin-top:15px">
+        <h3>Onboarding &amp; integration tracker</h3>
+        <p class="lede">From the ROAS Tracker sheet. Churned brands are automatically dropped from ARPA, Brand Build and velocity. Time-to-integrate is payment → live dashboard.</p>
+        <div style="overflow-x:auto"><table id="intgTable"></table></div>
       </div>
     </section>
 
@@ -454,7 +471,7 @@ const HKEYS={
 function buildMap(h){ const map={}, H=h.map(norm);
   for(const k in HKEYS) for(const c of HKEYS[k]){ const i=H.indexOf(norm(c)); if(i>=0){map[k]=h[i];break;} } return map; }
 
-let STATE={ rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", dropped:new Set() };
+let STATE={ rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", dropped:new Set(), manualDropped:new Set(), tracker:[], churnedBrands:new Set(), unmatchedChurn:[] };
 
 /* USD value of one invoice for ARPA: $ Amount (or AED/peg), net of VAT-included, net of refund. */
 function usdNet(i){
@@ -554,6 +571,7 @@ function filteredRows(){ const q=STATE.query; if(!q)return STATE.rows; const ql=
 
 const PAGE={overview:["Overview & ARPA",""],build:["Brand Build","Push active brands toward the $24K annualised threshold"],
   growth:["Growth","Revenue and new-brand acquisition over time"],velocity:["ROAS Velocity","Milestone progression and drop analysis"],
+  integration:["Integration & Onboarding","Status, integration and churn from the Tracker"],
   ledger:["Client Ledger","Every client, every invoice"]};
 
 function render(){
@@ -625,6 +643,7 @@ function render(){
   renderVelocity(clients,today);
   renderLedger(clients);
   renderBrandBuild(A, clients);
+  renderIntegration();
   document.getElementById("footnote").innerHTML=
     `Grouping by Brand Name · status only from Invoice Status · milestones only from ROAS- Milestone · ARPA from $ Amount (paid only, net of ${(CONFIG.VAT_RATE*100).toFixed(0)}% VAT where marked, less refunds) · "today" = ${F.date(today)} from the sheet.`;
 }
@@ -722,7 +741,7 @@ function renderARPAWork(A){
     <tr style="border-top:2px solid var(--line-strong)"><td colspan="5" style="text-align:right;color:var(--ink-soft)">Average ARPA</td><td style="text-align:right" class="mono">${F.usd(A.arpa)}</td><td></td></tr></tbody></table>
     ${A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone and not on the approved list.</p>`:""}
     <p class="hint" style="margin-top:8px">"Mark dropped" (M3+ only) stops annualising and uses year-to-date paid spend. M1/M2 brands can be dropped in Brand Build without changing ARPA.</p>`;
-  el.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.dropped.has(k)?STATE.dropped.delete(k):STATE.dropped.add(k); render(); }));
+  el.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.manualDropped.has(k)?STATE.manualDropped.delete(k):STATE.manualDropped.add(k); applyChurnDrops(); render(); }));
 }
 function renderVelocity(clients,today){
   const rowsData=[];
@@ -756,7 +775,7 @@ function renderVelocity(clients,today){
       <td>${r.passed30?'<span class="pill green">Yes</span>':`<span class="pill grey">No (${r.days}d)</span>`}</td>
       <td>${r.m2label}</td><td><span class="pill ${r.pill}">${r.result}</span></td><td>${drop}</td></tr>`;}).join("")}</tbody>`;
   if(!rowsData.length) t.innerHTML=`<tbody><tr><td class="hint">No brands with a paid Milestone-1 yet.</td></tr></tbody>`;
-  t.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.dropped.has(k)?STATE.dropped.delete(k):STATE.dropped.add(k); render(); }));
+  t.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.manualDropped.has(k)?STATE.manualDropped.delete(k):STATE.manualDropped.add(k); applyChurnDrops(); render(); }));
 }
 
 function renderLedger(clients){
@@ -783,7 +802,8 @@ function renderLedger(clients){
 /* ---------- BRAND BUILD ---------- */
 let BB_FILTER=null;
 let BB_ASSUME=null;   // promoted-brand assumed ARPA ($); null = use live M3+ average
-let BB_PROMOTE=0;     // slider: how many brands promoted to M3
+let BB_PROMOTE1=0;    // M1→M3 count
+let BB_PROMOTE2=0;    // M2→M3 count
 let BB_CTX=null;      // {active, below, m1, m2, m3plusAvg}
 
 function bbContext(A){
@@ -798,11 +818,16 @@ function bbContext(A){
     stalledM3:below.filter(r=>r.level>=3), m3plusAvg, promotable};
 }
 
-// average ARPA if the first `n` promotable brands are lifted to the assumed value
-function projectedARPA(ctx, n, assume){
-  const vals=ctx.active.map(r=>r.usd).slice();
-  // map promotable[i] -> its index in active, replace value with assume for first n
-  const promoteSet=new Set(ctx.promotable.slice(0,n).map(r=>r.name));
+// promotion pools, each ordered closest-to-M3 (higher current value first)
+function pools(ctx){
+  const m1=ctx.m1.slice().sort((a,b)=>b.usd-a.usd);
+  const m2=ctx.m2.slice().sort((a,b)=>b.usd-a.usd);
+  return {m1,m2};
+}
+// average ARPA if the first n1 M1s and first n2 M2s are lifted to the assumed value
+function projectedARPA(ctx, n1, n2, assume){
+  const {m1,m2}=pools(ctx);
+  const promoteSet=new Set([...m1.slice(0,n1),...m2.slice(0,n2)].map(r=>r.name));
   const arr=ctx.active.map(r=> promoteSet.has(r.name)? assume : r.usd);
   return arr.length? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
 }
@@ -827,11 +852,14 @@ function renderBrandBuild(A, clients){
   document.getElementById("bbAssumeHint").textContent = BB_ASSUME!=null? "custom · reset clears" : "= live M3+ average";
   ["bbTargetLbl","bbTargetLbl2","bbTargetLbl3"].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=T/1000;});
 
-  // slider bounds
-  const maxN=ctx.promotable.length;
-  const range=document.getElementById("wfRange");
-  range.max=maxN; if(BB_PROMOTE>maxN)BB_PROMOTE=maxN; range.value=BB_PROMOTE;
-  document.getElementById("wfPool").textContent=`${maxN} promotable (M1/M2 below target)`;
+  // two sliders: M1→M3 and M2→M3
+  const {m1,m2}=pools(ctx);
+  const r1=document.getElementById("wfRange1"), r2=document.getElementById("wfRange2");
+  r1.max=m1.length; if(BB_PROMOTE1>m1.length)BB_PROMOTE1=m1.length; r1.value=BB_PROMOTE1;
+  r2.max=m2.length; if(BB_PROMOTE2>m2.length)BB_PROMOTE2=m2.length; r2.value=BB_PROMOTE2;
+  document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2;
+  document.getElementById("wfPool1").textContent=`${m1.length} at M1`;
+  document.getElementById("wfPool2").textContent=`${m2.length} at M2`;
 
   drawWaterfall(ctx, assume);
   wireBBControls(A, clients);
@@ -843,7 +871,7 @@ function renderBrandBuild(A, clients){
   const el=document.getElementById("bbList");
   if(!ctx.active.length){ el.innerHTML=`<p class="hint">No active ROAS brands.</p>`; return; }
   if(!list.length){ el.innerHTML=`<p class="hint">${ctx.below.length?'No brands in this group.':`Every active brand is at or above $${T/1000}K.`}</p>`; return; }
-  const curAvg=projectedARPA(ctx,0,assume);
+  const curAvg=projectedARPA(ctx,0,0,assume);
   el.innerHTML=list.map(r=>{
     const gap=T-r.usd, pct=Math.min(100,r.usd/T*100), lvl=r.level;
     let move, play;
@@ -871,62 +899,60 @@ function renderBrandBuild(A, clients){
 let BB_WIRED=false;
 function wireBBControls(A, clients){
   if(BB_WIRED) return; BB_WIRED=true;
-  document.getElementById("wfRange").addEventListener("input",e=>{ BB_PROMOTE=+e.target.value;
-    const ctx=BB_CTX, assume=BB_ASSUME!=null?BB_ASSUME:Math.round(ctx.m3plusAvg);
-    document.getElementById("wfN").textContent=BB_PROMOTE; drawWaterfall(ctx,assume); });
+  const upd=()=>{ const ctx=BB_CTX, assume=BB_ASSUME!=null?BB_ASSUME:Math.round(ctx.m3plusAvg);
+    document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2; drawWaterfall(ctx,assume); };
+  document.getElementById("wfRange1").addEventListener("input",e=>{ BB_PROMOTE1=+e.target.value; upd(); });
+  document.getElementById("wfRange2").addEventListener("input",e=>{ BB_PROMOTE2=+e.target.value; upd(); });
   document.getElementById("bbAssume").addEventListener("input",e=>{ const v=parseInt(e.target.value); BB_ASSUME=isNaN(v)?0:v; renderBrandBuild(A,clients); });
 }
 
 function drawWaterfall(ctx, assume){
   const T=ctx.T, svg=document.getElementById("wfChart");
-  const cur=projectedARPA(ctx,0,assume);
-  const promoted=ctx.promotable.slice(0,BB_PROMOTE);
-  // build steps: base + one step per promoted brand (cumulative)
+  const {m1,m2}=pools(ctx);
+  const cur=projectedARPA(ctx,0,0,assume);
+  // build cumulative steps: M2 promotions first (quick wins), then M1 promotions
+  const seq=[...m2.slice(0,BB_PROMOTE2).map(r=>({r,kind:'m2'})), ...m1.slice(0,BB_PROMOTE1).map(r=>({r,kind:'m1'}))];
   const steps=[{label:"Now",val:cur,base:0,delta:cur,type:"base"}];
-  let running=cur;
-  promoted.forEach((r,i)=>{ const v=projectedARPA(ctx,i+1,assume); const d=v-running;
-    steps.push({label:r.name,val:v,base:running,delta:d,type:"up"}); running=v; });
-  const finalAvg=running;
+  let running=cur, i1=0,i2=0;
+  seq.forEach(s=>{ if(s.kind==='m2')i2++; else i1++; const v=projectedARPA(ctx,i1,i2,assume); const d=v-running;
+    steps.push({label:s.r.name,val:v,base:running,delta:d,type:s.kind}); running=v; });
+  const finalAvg=running, clears=finalAvg>=T;
   document.getElementById("wfFrom").textContent=F.usd(cur);
   document.getElementById("wfTo").textContent=F.usd(finalAvg);
-  const clears=finalAvg>=T;
-  document.getElementById("wfNote").innerHTML = BB_PROMOTE===0
+  const nP=BB_PROMOTE1+BB_PROMOTE2;
+  document.getElementById("wfNote").innerHTML = nP===0
     ? `Current fleet average across ${ctx.active.length} active ROAS brands.`
-    : `Promote ${BB_PROMOTE} brand${BB_PROMOTE>1?'s':''} to M3 → average ${clears?'<span style="color:var(--green)">clears':'reaches'} ${clears?'':'<span style="color:var(--ink)">'}${F.usd(finalAvg)}</span> ${clears?'':`· still ${F.usd(T-finalAvg)} short`}`;
+    : `Promote ${BB_PROMOTE2? BB_PROMOTE2+' M2':''}${BB_PROMOTE1&&BB_PROMOTE2?' + ':''}${BB_PROMOTE1? BB_PROMOTE1+' M1':''} to M3 → average ${clears?'<span style="color:var(--green)">clears '+F.usd(finalAvg)+'</span>':'reaches <span style="color:var(--ink)">'+F.usd(finalAvg)+'</span> · still '+F.usd(T-finalAvg)+' short'}`;
 
   const W=760,H=300,padL=54,padR=30,padT=20,padB=48, iw=W-padL-padR, ih=H-padT-padB;
   const maxV=Math.max(T*1.1, finalAvg*1.1, ...steps.map(s=>s.val));
-  const n=steps.length, bw=Math.min(70, iw/n*0.62), gap=iw/n;
-  const x=i=> padL + gap*i + (gap-bw)/2;
-  const y=v=> padT+ih - (v/maxV)*ih;
+  const n=steps.length, bw=Math.min(64, iw/n*0.62), gap=iw/n;
+  const x=i=> padL + gap*i + (gap-bw)/2, y=v=> padT+ih - (v/maxV)*ih;
   let g="";
   for(let t=0;t<=4;t++){ const gy=padT+ih*t/4, val=maxV*(1-t/4);
     g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--grid)"/>`;
     g+=`<text x="${padL-8}" y="${gy+3}" text-anchor="end">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`; }
-  // target line
   const ty=y(T);
   g+=`<line x1="${padL}" y1="${ty}" x2="${W-padR}" y2="${ty}" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
   g+=`<text x="${W-padR}" y="${ty-5}" text-anchor="end" fill="var(--orange)" style="font-weight:600">$${T/1000}K target</text>`;
-  // connectors + bars
-  steps.forEach((s,i)=>{ const bx=x(i);
-    const top=y(s.val), bot= s.type==="base"? y(0) : y(s.base);
-    const fill = s.type==="base"? "var(--indigo)" : "var(--green)";
-    g+=`<rect class="bar" x="${bx}" y="${top}" width="${bw}" height="${Math.max(1,bot-top)}" rx="3" fill="${fill}" opacity="${s.type==='base'?1:.9}" data-lbl="${(s.label||'').replace(/"/g,'&quot;')}" data-val="${Math.round(s.val)}" data-delta="${Math.round(s.delta)}"/>`;
+  steps.forEach((s,i)=>{ const bx=x(i), top=y(s.val), bot= s.type==="base"? y(0) : y(s.base);
+    const fill = s.type==="base"? "var(--indigo)" : s.type==="m2"? "var(--green)" : "var(--mauve)";
+    g+=`<rect class="bar" x="${bx}" y="${top}" width="${bw}" height="${Math.max(1,bot-top)}" rx="3" fill="${fill}" opacity="${s.type==='base'?1:.92}" data-lbl="${(s.label||'').replace(/"/g,'&quot;')}" data-val="${Math.round(s.val)}" data-delta="${Math.round(s.delta)}" data-kind="${s.type}"/>`;
     if(i>0){ const py=y(steps[i].base); g+=`<line x1="${x(i-1)+bw}" y1="${py}" x2="${bx}" y2="${py}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>`; }
-    // label
     const short = s.type==="base"?"Now":(s.label.length>9?s.label.slice(0,8)+"…":s.label);
     g+=`<text x="${bx+bw/2}" y="${H-30}" text-anchor="middle" transform="rotate(30 ${bx+bw/2} ${H-30})" style="font-size:9px">${short}</text>`;
-    // value atop base + final
     if(s.type==="base"||i===steps.length-1) g+=`<text x="${bx+bw/2}" y="${top-6}" text-anchor="middle" style="font-weight:600;font-size:10px" fill="var(--ink)">${F.usd(s.val)}</text>`;
   });
   svg.innerHTML=g;
   const tt=document.getElementById("tooltip");
   svg.querySelectorAll(".bar").forEach(b=>{ b.addEventListener("mousemove",e=>{ tt.style.opacity=1;
-      const d=+b.dataset.delta; tt.innerHTML=`<b>${b.dataset.lbl}</b><br>Average: ${F.usd(+b.dataset.val)}${d>0?`<br>+${F.usd(d)} from this promotion`:''}`;
+      const d=+b.dataset.delta, kind=b.dataset.kind; const tag=kind==='m2'?' (M2→M3)':kind==='m1'?' (M1→M3)':'';
+      tt.innerHTML=`<b>${b.dataset.lbl}${tag}</b><br>Average: ${F.usd(+b.dataset.val)}${d>0?`<br>+${F.usd(d)} from this promotion`:''}`;
       tt.style.left=(e.clientX+14)+"px"; tt.style.top=(e.clientY-10)+"px"; });
     b.addEventListener("mouseleave",()=>tt.style.opacity=0); });
 }
 
+const normBrand=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const tidy=s=>String(s||"").replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g,"-").replace(/[\u00a0\u2007\u202f]/g," ").replace(/\s+/g," ").trim();
 const shortName=n=>tidy(n).replace(/\s*(l\.?l\.?c\.?-?fz?|llc|fz llc|fze|trading company|company|general trading|- moontech|- mt)\b/gi,"").replace(/\s*-\s*/g," — ").replace(/\s+/g," ").trim()||tidy(n);
 const brandName=n=>{ const t=tidy(n),tl=t.toLowerCase();
@@ -935,6 +961,94 @@ const brandName=n=>{ const t=tidy(n),tl=t.toLowerCase();
   let b=parts.length>1?parts[parts.length-1]:(parts[0]||t); b=b.replace(/[\s,]+(MT|Moontech)$/i,"").trim();
   return parts.length>1&&b?b:shortName(parts.join(" - ")||t); };
 const shortDesc=d=>d.length>46?d.slice(0,44)+"…":d;
+
+/* ============ TRACKER (integration + churn) ============ */
+const TKEYS={ brand:["brand name"], tier:["client tier"], status:["status"],
+  integration:["dashboard integration"], milestone:["current milestone"],
+  daysIntegrate:["days for integration"], intDone:["integration completion date"],
+  timeCampaign:["days from payment to campaign","days from payment to c"] };
+function buildTMap(h){ const map={}, H=h.map(norm);
+  for(const k in TKEYS) for(const c of TKEYS[k]){ const i=H.indexOf(norm(c)); if(i>=0){map[k]=h[i];break;} } return map; }
+
+function parseDaysNum(v){ const m=String(v||"").match(/(-?\d+(?:\.\d+)?)/); return m?parseFloat(m[1]):null; }
+
+function ingestTracker(data, fields){
+  const map=buildTMap(fields), get=(r,k)=> map[k]!==undefined? r[map[k]] : "";
+  const rows=data.map(r=>({
+    brand: tidy(get(r,"brand")),
+    tier: String(get(r,"tier")||"").trim(),
+    status: String(get(r,"status")||"").trim(),
+    integration: String(get(r,"integration")||"").trim(),
+    milestone: parseDaysNum(get(r,"milestone")),
+    daysIntegrate: parseDaysNum(get(r,"daysIntegrate")),
+    timeCampaign: parseDaysNum(get(r,"timeCampaign"))
+  })).filter(r=> r.brand && !/^average$/i.test(r.brand));
+  STATE.tracker=rows;
+  // churned set (normalised)
+  STATE.churnedBrands=new Set(rows.filter(r=>/churn/i.test(r.status)).map(r=>normBrand(r.brand)));
+  applyChurnDrops();
+}
+
+/* churn -> auto-drop; keep manual drops separate so removing churn doesn't clear a manual one */
+function applyChurnDrops(){
+  const receivableBrands=new Set(STATE.rows.map(r=>normBrand(r.brand)));
+  // unmatched churn = churned in tracker but no receivables brand
+  STATE.unmatchedChurn=[...STATE.churnedBrands].filter(nb=> !receivableBrands.has(nb))
+    .map(nb=> (STATE.tracker.find(t=>normBrand(t.brand)===nb)||{}).brand || nb);
+  // rebuild dropped = manual ∪ churn-matched
+  STATE.dropped=new Set([...STATE.manualDropped]);
+  STATE.rows.forEach(r=>{ if(STATE.churnedBrands.has(normBrand(r.brand))) STATE.dropped.add(r.brand); });
+}
+
+function loadTracker(){
+  if(!CONFIG.TRACKER_CSV_URL) return;
+  Papa.parse(CONFIG.TRACKER_CSV_URL,{download:true,header:true,skipEmptyLines:true,
+    complete:res=>{ if(res.data&&res.data.length){ ingestTracker(res.data,res.meta.fields); if(typeof render==='function') render(); } },
+    error:()=>{ /* tracker optional; ignore fetch errors */ } });
+}
+
+function renderIntegration(){
+  const el=document.getElementById("intgTable"); if(!el) return;
+  const t=STATE.tracker;
+  if(!t.length){ el.innerHTML=`<tbody><tr><td class="hint">Tracker not loaded yet — it loads from the embedded Tracker CSV; if this persists, check that link is published.</td></tr></tbody>`; return; }
+  const receivableBrands=new Set(STATE.rows.map(r=>normBrand(r.brand)));
+  // status + integration counts
+  const active=t.filter(r=>/active/i.test(r.status)).length;
+  const churned=t.filter(r=>/churn/i.test(r.status)).length;
+  const hold=t.filter(r=>/hold/i.test(r.status)).length;
+  const intDone=t.filter(r=>/complet/i.test(r.integration)).length;
+  const intProg=t.filter(r=>/process|progress/i.test(r.integration)).length;
+  const intDays=t.map(r=>r.daysIntegrate).filter(v=>v!=null&&v>=0);
+  const avgInt=intDays.length? Math.round(intDays.reduce((a,b)=>a+b,0)/intDays.length) : null;
+
+  const head=[
+    {a:"green",l:"Active",v:active,c:`of ${t.length} tracked`},
+    {a:"red",l:"Churned",v:churned,c:"auto-dropped from ARPA"},
+    {a:"orange",l:"On hold",v:hold,c:"watch"},
+    {a:"indigo",l:"Integration done",v:`${intDone}/${t.length}`,c:`${intProg} in process`},
+    {a:"mauve",l:"Avg days to integrate",v:avgInt!=null?avgInt:"—",c:"payment → live dashboard"}
+  ].map(s=>`<div class="bbstat" style="--accent:var(--${s.a})"><div class="l">${s.l}</div><div class="v">${s.v}</div><div class="c">${s.c}</div></div>`).join("");
+  document.getElementById("intgHead").innerHTML=head;
+
+  // unmatched churn flag
+  const flag = STATE.unmatchedChurn.length
+    ? `<div class="checks"><b>Churn match warning</b><ul>${STATE.unmatchedChurn.map(n=>`<li><b>${n}</b> is churned in the Tracker but no matching brand was found in receivables — <b>not auto-dropped</b>. Check the brand spelling in both sheets.</li>`).join("")}</ul></div>`
+    : "";
+  document.getElementById("intgFlag").innerHTML=flag;
+
+  // table
+  const statusPill=s=> /active/i.test(s)?`<span class="pill green">Active</span>`: /churn/i.test(s)?`<span class="pill red">Churned</span>`: /hold/i.test(s)?`<span class="pill amber">On hold</span>`:`<span class="pill grey">${s||"—"}</span>`;
+  const intPill=s=> /complet/i.test(s)?`<span class="pill green">Completed</span>`: /process|progress/i.test(s)?`<span class="pill amber">In process</span>`:`<span class="pill grey">${s||"—"}</span>`;
+  const speed=d=>{ if(d==null) return `<span class="hint">—</span>`;
+    const cls=d<=avgInt?"green":d<=avgInt*2?"amber":"red"; return `<span class="pill ${cls}">${Math.round(d)}d</span>`; };
+  const matched=nb=>receivableBrands.has(nb);
+  const sorted=[...t].sort((a,b)=>{ const o={churn:0,hold:1,active:2}; const ra=/churn/i.test(a.status)?0:/hold/i.test(a.status)?1:2, rb=/churn/i.test(b.status)?0:/hold/i.test(b.status)?1:2; return ra-rb || (b.daysIntegrate||0)-(a.daysIntegrate||0); });
+  document.getElementById("intgTable").innerHTML=
+    `<thead><tr><th>Brand</th><th>Tier</th><th>Status</th><th>Integration</th><th>Time to integrate</th><th>Milestone</th><th>In receivables?</th></tr></thead>
+     <tbody>${sorted.map(r=>`<tr><td>${r.brand}</td><td>${r.tier||'<span class="hint">—</span>'}</td><td>${statusPill(r.status)}</td><td>${intPill(r.integration)}</td><td>${speed(r.daysIntegrate)}</td><td>${r.milestone?moonPhases(r.milestone):'<span class="hint">—</span>'}</td>
+       <td>${matched(normBrand(r.brand))?'<span class="pill green">Matched</span>':(/churn/i.test(r.status)?'<span class="pill red">No match</span>':'<span class="hint">—</span>')}</td></tr>`).join("")}</tbody>`;
+}
+
 
 /* ============ ROAS MODEL EXPORT (styled xlsx, matches Image 1) ============ */
 function modelStatus(c, dropped, today){
@@ -1106,13 +1220,13 @@ function setupControls(){
     render(); });
   ta.addEventListener("click",e=>{ const it=e.target.closest(".item"); if(!it)return; search.value=it.dataset.v; STATE.query=it.dataset.v; ta.classList.remove("open"); render(); });
   document.addEventListener("click",e=>{ if(!e.target.closest(".search-wrap")) ta.classList.remove("open"); });
-  document.getElementById("resetBtn").onclick=()=>{ search.value="";STATE.query="";STATE.leads=75;STATE.ledgerFilter="all";STATE.dropped=new Set(); BB_FILTER=null; BB_PROMOTE=0; BB_ASSUME=null;
+  document.getElementById("resetBtn").onclick=()=>{ search.value="";STATE.query="";STATE.leads=75;STATE.ledgerFilter="all";STATE.manualDropped=new Set(); applyChurnDrops(); BB_FILTER=null; BB_PROMOTE1=0; BB_PROMOTE2=0; BB_ASSUME=null;
     document.querySelectorAll("#ledgerFilter button").forEach(b=>b.classList.toggle("on",b.dataset.f==="all"));
     STATE.month=F.ym(STATE.today); document.getElementById("monthSel").value=STATE.month; render(); };
   document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
     document.querySelectorAll("#ledgerFilter button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); STATE.ledgerFilter=b.dataset.f; render(); });
   document.getElementById("sampleBtn").onclick=()=>loadSample();
-  document.getElementById("refreshBtn").onclick=()=>loadFromSheet(true);
+  document.getElementById("refreshBtn").onclick=()=>{loadFromSheet(true);loadTracker();};
   document.getElementById("exportBtn").onclick=exportModel;
   document.getElementById("fileInput").addEventListener("change",e=>{ const file=e.target.files[0]; if(!file)return;
     Papa.parse(file,{header:true,skipEmptyLines:true,complete:res=>ingest(res.data,res.meta.fields,"Uploaded: "+file.name,"live")}); });
@@ -1132,7 +1246,7 @@ function loadFromSheet(isRefresh){ const url=activeUrl(), diag=document.getEleme
       ingest(res.data,res.meta.fields,"Live · Google Sheet","live"); },
     error:err=>{ loadSample(true,{kind:"err",msg:"Couldn't reach the sheet — showing sample.",detail:"Not published, or published as web page not CSV. "+((err&&err.message)||"network/CORS")}); } });
 }
-window.addEventListener("DOMContentLoaded",()=>{ setupControls(); setupNav(); setupTheme(); SKY.start(); loadFromSheet(false);
+window.addEventListener("DOMContentLoaded",()=>{ setupControls(); setupNav(); setupTheme(); SKY.start(); loadFromSheet(false); loadTracker();
   if(CONFIG.REFRESH_SECONDS>0) setInterval(()=>loadFromSheet(true),CONFIG.REFRESH_SECONDS*1000); });
 
 function loadSample(silent, reason){
