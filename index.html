@@ -11,6 +11,7 @@ const CONFIG = {
   AED_PER_USD: 3.6725,
   VAT_RATE: 0.05,
   ARPA_TARGET: 24000,               // annualised $ per brand — the Brand Build goal
+  M3_MONTHLY: 3000,                 // M3 milestone invoice = $3,000/mo -> annualised on promotion
   ARPA_INCLUDE_BRANDS: ["Jetour"],  // approved non-ROAS anomalies counted in ARPA
   BRAND_OVERRIDES: { "elite cars": "Jetour" },
   ACQUISITION_START: "2025-10-01",
@@ -342,18 +343,14 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 
       <div class="panel">
         <h3>ARPA build — promote brands to M3 and watch the average climb</h3>
-        <p class="lede">M3 is where a brand switches to annualised billing — the lever that lifts ARPA. Drag to promote your closest-to-M3 brands and see where the fleet average lands against the $<span id="bbTargetLbl"></span>K target. Promoted brands are valued at the <span id="bbAssumeLbl"></span> (editable).</p>
+        <p class="lede">M3 is a fixed $3,000/mo milestone — reaching it annualises a brand to <b>$36,000</b>. Drag each slider to promote M1 or M2 brands to M3 and watch the live fleet ARPA (matching the workings) climb toward the $<span id="bbTargetLbl"></span>K target.</p>
         <div class="wf-top">
           <div class="wf-read">
             <div class="wf-l">Projected ARPA</div>
             <div class="wf-v"><span class="num" id="wfFrom">$0</span> <span class="wf-arrow">&#8594;</span> <span class="num" id="wfTo">$0</span></div>
             <div class="wf-c" id="wfNote"></div>
           </div>
-          <div class="wf-assume">
-            <label>Promoted brand worth</label>
-            <div class="wf-assume-in">$<input type="number" id="bbAssume" class="leads-input" style="width:82px" min="0" step="1000"></div>
-            <div class="hint" id="bbAssumeHint"></div>
-          </div>
+
         </div>
         <div class="wf-slider">
           <div class="wf-slabel"><span><span class="movetag m1">M1 &#8594; M3</span> promote <b id="wfN1">0</b></span><span class="hint" id="wfPool1"></span></div>
@@ -805,21 +802,26 @@ function renderLedger(clients){
 
 /* ---------- BRAND BUILD ---------- */
 let BB_FILTER=null;
-let BB_ASSUME=null;   // promoted-brand assumed ARPA ($); null = use live M3+ average
 let BB_PROMOTE1=0;    // M1→M3 count
 let BB_PROMOTE2=0;    // M2→M3 count
 let BB_CTX=null;      // {active, below, m1, m2, m3plusAvg}
 
 function bbContext(A){
   const T=CONFIG.ARPA_TARGET;
-  const active=A.rows.filter(r=>!r.dropped && r.level);
+  const M3VAL=CONFIG.M3_MONTHLY*12;                    // locked promotion value = $36,000
+  // base average = the FULL live ARPA (every ARPA row, churned included at its value)
+  const all=A.rows;
+  const baseAvg = all.length? all.reduce((s,r)=>s+r.usd,0)/all.length : 0;
+  // promotable = NON-dropped, ROAS, below the M3 value and below target (i.e. M1/M2 that could climb)
+  const promotable=all.filter(r=>!r.dropped && r.level && r.level<3);
+  const m1=promotable.filter(r=>r.level===1);
+  const m2=promotable.filter(r=>r.level===2);
+  // for the header/list "below target" view (non-dropped only)
+  const active=all.filter(r=>!r.dropped && r.level);
   const below=active.filter(r=>r.usd<T);
-  const m3plus=active.filter(r=>r.level>=3);
-  const m3plusAvg=m3plus.length? m3plus.reduce((s,r)=>s+r.usd,0)/m3plus.length : T; // fallback: target
-  // promotable = sub-M3 below target, ordered by closeness to M3 (M2 first, then M1), then by current value desc
-  const promotable=below.filter(r=>r.level<3).sort((a,b)=> b.level-a.level || b.usd-a.usd);
-  return {T, active, below, m1:below.filter(r=>r.level===1), m2:below.filter(r=>r.level===2),
-    stalledM3:below.filter(r=>r.level>=3), m3plusAvg, promotable};
+  return {T, M3VAL, all, baseAvg, active, below, m1, m2,
+    stalledM3:below.filter(r=>r.level>=3),
+    m3plusAvg: (()=>{ const m=all.filter(r=>!r.dropped&&r.level>=3); return m.length?m.reduce((s,r)=>s+r.usd,0)/m.length:M3VAL; })()};
 }
 
 // promotion pools, each ordered closest-to-M3 (higher current value first)
@@ -828,17 +830,16 @@ function pools(ctx){
   const m2=ctx.m2.slice().sort((a,b)=>b.usd-a.usd);
   return {m1,m2};
 }
-// average ARPA if the first n1 M1s and first n2 M2s are lifted to the assumed value
-function projectedARPA(ctx, n1, n2, assume){
+// projected FULL-book average if first n1 M1s and n2 M2s are lifted to the locked M3 value
+function projectedARPA(ctx, n1, n2){
   const {m1,m2}=pools(ctx);
   const promoteSet=new Set([...m1.slice(0,n1),...m2.slice(0,n2)].map(r=>r.name));
-  const arr=ctx.active.map(r=> promoteSet.has(r.name)? assume : r.usd);
+  const arr=ctx.all.map(r=> promoteSet.has(r.name)? ctx.M3VAL : r.usd);
   return arr.length? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
 }
 
 function renderBrandBuild(A, clients){
   const ctx=bbContext(A); BB_CTX=ctx; const T=ctx.T;
-  const assume = BB_ASSUME!=null ? BB_ASSUME : Math.round(ctx.m3plusAvg);
   const atOrAbove=ctx.active.length-ctx.below.length;
 
   // header tiles (clickable filters)
@@ -850,10 +851,6 @@ function renderBrandBuild(A, clients){
    +stat('m3','mauve','M3+ under target',F.int(ctx.stalledM3.length),'lift next invoice', BB_FILTER==='m3');
   document.querySelectorAll("#bbHead .clickable").forEach(el=>el.addEventListener("click",()=>{ BB_FILTER=(BB_FILTER===el.dataset.f)?null:el.dataset.f; renderBrandBuild(A,clients); }));
 
-  document.getElementById("bbAssumeLbl").textContent="live M3+ average ("+F.usd(Math.round(ctx.m3plusAvg))+")";
-  const assumeIn=document.getElementById("bbAssume");
-  if(document.activeElement!==assumeIn) assumeIn.value=assume;
-  document.getElementById("bbAssumeHint").textContent = BB_ASSUME!=null? "custom · reset clears" : "= live M3+ average";
   ["bbTargetLbl","bbTargetLbl2","bbTargetLbl3"].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=T/1000;});
 
   // two sliders: M1→M3 and M2→M3
@@ -865,7 +862,7 @@ function renderBrandBuild(A, clients){
   document.getElementById("wfPool1").textContent=`${m1.length} at M1`;
   document.getElementById("wfPool2").textContent=`${m2.length} at M2`;
 
-  drawWaterfall(ctx, assume);
+  drawWaterfall(ctx);
   wireBBControls(A, clients);
 
   // ---- the per-brand list, with cumulative ARPA-impact in each playbook ----
@@ -875,7 +872,7 @@ function renderBrandBuild(A, clients){
   const el=document.getElementById("bbList");
   if(!ctx.active.length){ el.innerHTML=`<p class="hint">No active ROAS brands.</p>`; return; }
   if(!list.length){ el.innerHTML=`<p class="hint">${ctx.below.length?'No brands in this group.':`Every active brand is at or above $${T/1000}K.`}</p>`; return; }
-  const curAvg=projectedARPA(ctx,0,0,assume);
+  const curAvg=projectedARPA(ctx,0,0);
   el.innerHTML=list.map(r=>{
     const gap=T-r.usd, pct=Math.min(100,r.usd/T*100), lvl=r.level;
     let move, play;
@@ -883,13 +880,13 @@ function renderBrandBuild(A, clients){
       move=`<span class="movetag m3">M${lvl} · lift invoice</span>`;
       play=`Annualised at <b>${F.usd(mn)}</b>/mo. Raise the next invoice to <b>${F.usd(need)}</b>/mo (<span class="lift">${F.usd(need-mn)}/mo</span>) to clear $${T/1000}K.`;
     } else {
-      // cumulative ARPA if THIS brand alone is promoted to M3
-      const arr=ctx.active.map(x=> x.name===r.name? assume : x.usd);
+      // cumulative ARPA if THIS brand alone is promoted to M3 (locked $36k), full-book average
+      const arr=ctx.all.map(x=> x.name===r.name? ctx.M3VAL : x.usd);
       const withThis=arr.reduce((s,v)=>s+v,0)/arr.length;
       const delta=withThis-curAvg;
       const steps=3-lvl;
       move=`<span class="movetag ${lvl===2?'m2':'m1'}">M${lvl} &#8594; M3</span>`;
-      play=`At M${lvl}, counted at spend-to-date <b>${F.usd(r.usd)}</b>. Reaching <b>M3</b> (${steps} milestone${steps>1?'s':''} away) annualises it at ~<b>${F.usd(assume)}</b> — moving fleet ARPA <span class="lift">${F.usd(curAvg)} &#8594; ${F.usd(withThis)}</span> (+${F.usd(delta)}). ${lvl===2?'One rung away — prioritise.':''}`;
+      play=`At M${lvl}, counted at spend-to-date <b>${F.usd(r.usd)}</b>. Reaching <b>M3</b> (${steps} milestone${steps>1?'s':''} away) annualises it to <b>${F.usd(ctx.M3VAL)}</b> — moving fleet ARPA <span class="lift">${F.usd(curAvg)} &#8594; ${F.usd(withThis)}</span> (+${F.usd(delta)}). ${lvl===2?'One rung away — prioritise.':''}`;
     }
     return `<div class="oppcard">
       <div><div class="bn">${r.name} ${moonPhases(lvl)}</div><div class="sm">${move} · ${Math.round(pct)}% of target</div>
@@ -903,22 +900,21 @@ function renderBrandBuild(A, clients){
 let BB_WIRED=false;
 function wireBBControls(A, clients){
   if(BB_WIRED) return; BB_WIRED=true;
-  const upd=()=>{ const ctx=BB_CTX, assume=BB_ASSUME!=null?BB_ASSUME:Math.round(ctx.m3plusAvg);
-    document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2; drawWaterfall(ctx,assume); };
+  const upd=()=>{ const ctx=BB_CTX;
+    document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2; drawWaterfall(ctx); };
   document.getElementById("wfRange1").addEventListener("input",e=>{ BB_PROMOTE1=+e.target.value; upd(); });
   document.getElementById("wfRange2").addEventListener("input",e=>{ BB_PROMOTE2=+e.target.value; upd(); });
-  document.getElementById("bbAssume").addEventListener("input",e=>{ const v=parseInt(e.target.value); BB_ASSUME=isNaN(v)?0:v; renderBrandBuild(A,clients); });
 }
 
-function drawWaterfall(ctx, assume){
+function drawWaterfall(ctx){
   const T=ctx.T, svg=document.getElementById("wfChart");
   const {m1,m2}=pools(ctx);
-  const cur=projectedARPA(ctx,0,0,assume);
+  const cur=projectedARPA(ctx,0,0);
   // build cumulative steps: M2 promotions first (quick wins), then M1 promotions
   const seq=[...m2.slice(0,BB_PROMOTE2).map(r=>({r,kind:'m2'})), ...m1.slice(0,BB_PROMOTE1).map(r=>({r,kind:'m1'}))];
   const steps=[{label:"Now",val:cur,base:0,delta:cur,type:"base"}];
   let running=cur, i1=0,i2=0;
-  seq.forEach(s=>{ if(s.kind==='m2')i2++; else i1++; const v=projectedARPA(ctx,i1,i2,assume); const d=v-running;
+  seq.forEach(s=>{ if(s.kind==='m2')i2++; else i1++; const v=projectedARPA(ctx,i1,i2); const d=v-running;
     steps.push({label:s.r.name,val:v,base:running,delta:d,type:s.kind}); running=v; });
   const finalAvg=running, clears=finalAvg>=T;
   document.getElementById("wfFrom").textContent=F.usd(cur);
@@ -1227,7 +1223,7 @@ function setupControls(){
     render(); });
   ta.addEventListener("click",e=>{ const it=e.target.closest(".item"); if(!it)return; search.value=it.dataset.v; STATE.query=it.dataset.v; ta.classList.remove("open"); render(); });
   document.addEventListener("click",e=>{ if(!e.target.closest(".search-wrap")) ta.classList.remove("open"); });
-  document.getElementById("resetBtn").onclick=()=>{ search.value="";STATE.query="";STATE.leads=75;STATE.ledgerFilter="all";STATE.manualDropped=new Set(); applyChurnDrops(); BB_FILTER=null; BB_PROMOTE1=0; BB_PROMOTE2=0; BB_ASSUME=null;
+  document.getElementById("resetBtn").onclick=()=>{ search.value="";STATE.query="";STATE.leads=75;STATE.ledgerFilter="all";STATE.manualDropped=new Set(); applyChurnDrops(); BB_FILTER=null; BB_PROMOTE1=0; BB_PROMOTE2=0;
     document.querySelectorAll("#ledgerFilter button").forEach(b=>b.classList.toggle("on",b.dataset.f==="all"));
     STATE.month=F.ym(STATE.today); document.getElementById("monthSel").value=STATE.month; render(); };
   document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
