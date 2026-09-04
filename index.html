@@ -1056,10 +1056,10 @@ function modelStatus(c, dropped, today){
   // recency by INVOICE date of the most recent ROAS activity (any status counts as engagement,
   // but base health on paid ROAS invoices)
   const paidMi=c.paid.filter(i=>i.mile&&i.invDate).sort((a,b)=>a.invDate-b.invDate);
-  const first=c.firstPaid;
-  if(!first || !paidMi.length) return "Too early";
+  if(!paidMi.length) return "Too early";
+  const firstRoas=paidMi[0];               // ROAS journey starts at first paid ROAS invoice
   const lastInv=paidMi[paidMi.length-1].invDate;
-  const monthsActive=(today.getFullYear()-first.invDate.getFullYear())*12+(today.getMonth()-first.invDate.getMonth())+1;
+  const monthsActive=(today.getFullYear()-firstRoas.invDate.getFullYear())*12+(today.getMonth()-firstRoas.invDate.getMonth())+1;
   const daysSinceLast=Math.floor((today-lastInv)/86400000);
   const lvl=c.paidLevel||0;
   // climbing: reached a higher level within the last ~60d
@@ -1083,9 +1083,10 @@ function buildModelRows(){
   const monthKeys=monthKeysFrom("2025-11-01", today);
   const rowsOut=clients.map(c=>{
     const paidMi=c.paid.filter(i=>i.mile&&i.invDate).sort((a,b)=>a.invDate-b.invDate);
-    const first=c.firstPaid;
-    const startLabel=first?F.ymLabel(F.ym(first.invDate)):"—";
-    const monthsActive=first?((today.getFullYear()-first.invDate.getFullYear())*12+(today.getMonth()-first.invDate.getMonth())+1):0;
+    // ROAS export: Start = first paid ROAS invoice (not influencer/CPL). Fall back to first paid only if no ROAS.
+    const firstRoas=paidMi[0] || c.firstPaid;
+    const startLabel=firstRoas?F.ymLabel(F.ym(firstRoas.invDate)):"—";
+    const monthsActive=firstRoas?((today.getFullYear()-firstRoas.invDate.getFullYear())*12+(today.getMonth()-firstRoas.invDate.getMonth())+1):0;
     const lvl=c.paidLevel||0;
     // months at current level
     const firstAtLvl=paidMi.filter(i=>i.mile===lvl)[0];
