@@ -4,220 +4,178 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Moontech Client Profile</title>
-
-<!-- ============================================================= -->
-<!--  DATA SOURCE CONFIG — live CSV link is embedded below.         -->
-<!--  To repoint: File > Share > Publish to web > (tab) > CSV,      -->
-<!--  replace SHEET_CSV_URL. The URL must end in output=csv.        -->
-<!-- ============================================================= -->
 <script>
 const CONFIG = {
   SHEET_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTN4F4HrbFaylUihY5v3JQ6cG8nFwpkQgpfn-zndurG2WGEKAY011cll7OwYJGuR3_wqV76pjSkG14x/pub?gid=634629514&single=true&output=csv",
-
-  AED_PER_USD: 3.6725,  // fallback only — ARPA reads the sheet's $ Amount column
-  VAT_RATE: 0.05,       // stripped from $ amounts marked "VAT Included" in ARPA
-
-  /* Brands included in ARPA even without a ROAS milestone (approved anomalies). */
-  ARPA_INCLUDE_BRANDS: ["Jetour"],
-
+  AED_PER_USD: 3.6725,
+  VAT_RATE: 0.05,
+  ARPA_TARGET: 24000,               // annualised $ per brand — the Brand Build goal
+  ARPA_INCLUDE_BRANDS: ["Jetour"],  // approved non-ROAS anomalies counted in ARPA
   BRAND_OVERRIDES: { "elite cars": "Jetour" },
-
   ACQUISITION_START: "2025-10-01",
   CONVERSION_START:  "2026-02-01",
   REFRESH_SECONDS: 0
 };
 function activeUrl(){ return CONFIG.SHEET_CSV_URL; }
 </script>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif&display=swap" rel="stylesheet">
 <style>
-/* ============ THEMES ============ */
 :root, [data-theme="dark"]{
-  --bg:#0a0d1c; --panel:#12172bcc; --panel-solid:#12172b; --panel2:#171d36; --ink:#e9ebf8; --ink-soft:#a8adcf; --ink-faint:#6d7398;
-  --line:#20264a; --line-strong:#2c3462;
-  --indigo:#6c63ff; --indigo-soft:rgba(108,99,255,.14); --indigo-ink:#aca6ff;
-  --green:#34d399; --green-soft:rgba(52,211,153,.13); --amber:#fbbf24; --amber-soft:rgba(251,191,36,.12); --red:#f87171; --red-soft:rgba(248,113,113,.13);
-  --a-mint:#34d399; --a-sky:#60a5fa; --a-lilac:#a78bfa; --a-rose:#fb7185; --a-peach:#fb923c; --a-cream:#facc15; --a-pink:#f472b6;
-  --hatchbg:#262c52; --hatchfg:#8079ef; --grid:#20264a; --seldot:#cfd3f5;
-  --hd1:#151038; --hd2:#221a66; --hd3:#33279e;
-  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
-  --shadow-lift:0 2px 8px rgba(0,0,0,.4), 0 18px 44px rgba(108,99,255,.18);
-  --check-bg:rgba(251,191,36,.12); --check-bd:rgba(251,191,36,.35); --check-ink:#fcd34d; --diag:#fca5a5;
-  --radius:16px;
+  --bg:#0a0820; --panel:#141033; --panel-solid:#141033; --panel2:#1a1542; --ink:#ece9ff; --ink-soft:#9089c8; --ink-faint:#615aa0;
+  --line:#241e52; --line-strong:#332a70;
+  --indigo:#6c5cff; --indigo-deep:#3E278D; --indigo-soft:rgba(108,92,255,.15); --indigo-ink:#b3a9ff;
+  --mauve:#c579b3; --orange:#FF9500; --orange-soft:rgba(255,149,0,.14);
+  --green:#2fce8f; --green-soft:rgba(47,206,143,.14); --amber:#FF9500; --amber-soft:rgba(255,149,0,.13); --red:#f4685c; --red-soft:rgba(244,104,92,.14);
+  --rail:linear-gradient(180deg,#1b1240 0%,#120c30 100%); --rail-line:#2a2260;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.4);
+  --shadow-lift:0 2px 10px rgba(0,0,0,.5), 0 22px 50px rgba(62,39,141,.3);
+  --grid:#241e52; --seldot:#d8d3ff; --hatchbg:#2a2168; --hatchfg:#6c5cff;
+  --check-bg:var(--amber-soft); --check-bd:rgba(255,149,0,.4); --check-ink:#ffb84d; --diag:#ff9e94;
+  --radius:12px;
 }
 [data-theme="light"]{
-  --bg:#f3f4fb; --panel:#ffffffd9; --panel-solid:#ffffff; --panel2:#f7f8fe; --ink:#1e2138; --ink-soft:#5a5f7e; --ink-faint:#9096b4;
-  --line:#e8eaf5; --line-strong:#d9dcef;
-  --indigo:#4f46e5; --indigo-soft:#eef0ff; --indigo-ink:#3b32c4;
-  --green:#16a34a; --green-soft:#e9f7ef; --amber:#d97706; --amber-soft:#fdf3e3; --red:#dc2626; --red-soft:#fdecec;
-  --a-mint:#10b981; --a-sky:#3b82f6; --a-lilac:#8b5cf6; --a-rose:#f43f5e; --a-peach:#f97316; --a-cream:#eab308; --a-pink:#ec4899;
-  --hatchbg:#e3e1fb; --hatchfg:#8079ef; --grid:#eceef6; --seldot:#1b1650;
-  --hd1:#2b2380; --hd2:#4038c7; --hd3:#6c63ff;
-  --shadow:0 1px 2px rgba(30,33,56,.04), 0 8px 24px rgba(30,33,56,.06);
-  --shadow-lift:0 2px 6px rgba(30,33,56,.08), 0 18px 40px rgba(79,70,229,.12);
-  --check-bg:#fdf3e3; --check-bd:#f3e2c2; --check-ink:#8a5a08; --diag:#a3341f;
-  --radius:16px;
+  --bg:#f3f3f7; --panel:#ffffff; --panel-solid:#ffffff; --panel2:#f6f6fa; --ink:#141026; --ink-soft:#5c5a74; --ink-faint:#9a99ac;
+  --line:#e7e6f2; --line-strong:#dad8ec;
+  --indigo:#4f3fd6; --indigo-deep:#3E278D; --indigo-soft:#eeebff; --indigo-ink:#3E278D;
+  --mauve:#AD5C9A; --orange:#FF9500; --orange-soft:#fff2df;
+  --green:#12a46b; --green-soft:#e4f6ed; --amber:#e07d00; --amber-soft:#fff2df; --red:#e4483d; --red-soft:#fde7e5;
+  --rail:linear-gradient(180deg,#2E1A6E 0%,#231657 100%); --rail-line:rgba(255,255,255,.1);
+  --shadow:0 1px 2px rgba(30,24,80,.05), 0 10px 26px rgba(30,24,80,.07);
+  --shadow-lift:0 2px 8px rgba(30,24,80,.08), 0 20px 44px rgba(62,39,141,.14);
+  --grid:#eceaf6; --seldot:#3E278D; --hatchbg:#e6e2fb; --hatchfg:#6c5cff;
+  --check-bg:#fff2df; --check-bd:#f3dcb3; --check-ink:#8a5a08; --diag:#c0392b;
+  --radius:12px;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{
-  margin:0; background:var(--bg); color:var(--ink);
+body{margin:0; background:var(--bg); color:var(--ink);
   font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   font-weight:400; line-height:1.45; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; -moz-osx-font-smoothing:grayscale;
-  font-feature-settings:"tnum" 1, "cv05" 1;
-  transition:background .3s, color .3s;
-}
-#sky{position:fixed; inset:0; z-index:0; pointer-events:none}
-#hsky{position:absolute; inset:0; pointer-events:none; z-index:0}
-.num{font-variant-numeric:tabular-nums; font-weight:400}
+  font-feature-settings:"tnum" 1, "cv05" 1; transition:background .3s,color .3s;}
+.num{font-variant-numeric:tabular-nums}
 a{color:inherit}
-.wrap{max-width:1720px; margin:0 auto; padding:22px 26px 60px; position:relative; z-index:1}
+#sky{position:fixed; inset:0; z-index:0; pointer-events:none}
 
-/* ---------- header ---------- */
-header.top{
-  display:flex; align-items:center; gap:22px; flex-wrap:wrap;
-  padding:16px 22px; border:1px solid var(--line); color:#fff;
-  background:linear-gradient(120deg,var(--hd1) 0%, var(--hd2) 55%, var(--hd3) 100%);
-  border-radius:var(--radius); box-shadow:0 12px 36px rgba(20,14,80,.45); position:relative;
-  overflow:hidden;
-}
-header.top::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:.8;
-  background-image:radial-gradient(1.5px 1.5px at 12% 30%, rgba(255,255,255,.9) 50%, transparent 51%),
-    radial-gradient(1px 1px at 28% 70%, rgba(255,255,255,.6) 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 46% 22%, rgba(255,255,255,.55) 50%, transparent 51%),
-    radial-gradient(1px 1px at 62% 62%, rgba(255,255,255,.55) 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 82% 34%, rgba(255,255,255,.65) 50%, transparent 51%),
-    radial-gradient(1px 1px at 93% 74%, rgba(255,255,255,.5) 50%, transparent 51%),
-    radial-gradient(1px 1px at 55% 85%, rgba(255,255,255,.4) 50%, transparent 51%),
-    radial-gradient(1px 1px at 20% 15%, rgba(255,255,255,.5) 50%, transparent 51%);}
-header.top>*{position:relative}
-.brand{display:flex; align-items:center; gap:13px; margin-right:auto}
-.moon{width:40px; height:40px; flex:none; border-radius:50%;
-  background:radial-gradient(circle at 32% 32%, #fffdf2 0%, #f2e8c4 55%, #d3c290 100%);
-  box-shadow:inset -8px -8px 14px rgba(110,90,35,.4), 0 0 26px rgba(255,244,190,.5); position:relative;}
-.moon::after{content:""; position:absolute; width:7px; height:7px; border-radius:50%; left:9px; top:18px;
-  background:rgba(150,130,70,.3); box-shadow:13px -10px 0 -1px rgba(150,130,70,.26), 6px 6px 0 -2px rgba(150,130,70,.2);}
-.brand h1{font-family:"Instrument Serif",Georgia,serif; font-weight:400; font-size:27px;
-  letter-spacing:.2px; margin:0; line-height:1; color:#fff}
-.brand .sub{font-size:10.5px; letter-spacing:2.4px; color:rgba(255,255,255,.55); text-transform:uppercase; margin-top:4px}
-header.top .ctl label{color:rgba(255,255,255,.6)}
-header.top .field{background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.22); color:#fff}
-header.top .field:focus{background:rgba(255,255,255,.12); border-color:#aca6ff; box-shadow:0 0 0 3px rgba(108,99,255,.25)}
-header.top input.field::placeholder{color:rgba(255,255,255,.45)}
-header.top .search-wrap svg{stroke:rgba(255,255,255,.5)}
-header.top select.field option{background:#1a1f3d; color:#fff}
-header.top .btn{background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.28); color:#fff}
-header.top .btn:hover{background:rgba(255,255,255,.2); border-color:#fff; color:#fff}
-.themeBtn{width:38px; padding:0!important; font-size:16px; line-height:1}
+/* ---------- app shell: sidebar rail + main ---------- */
+.app{display:grid; grid-template-columns:230px 1fr; min-height:100vh; position:relative; z-index:1}
+.rail{background:var(--rail); border-right:1px solid var(--rail-line); padding:20px 14px; display:flex; flex-direction:column; gap:4px; position:sticky; top:0; height:100vh; overflow-y:auto}
+.rail .brand{display:block; padding:4px 10px 22px}
+.wordmark{display:flex; align-items:flex-start; line-height:1; color:#fff}
+.wm-moon{font-family:'Instrument Serif',Georgia,serif; font-size:26px; letter-spacing:.5px; position:relative; display:inline-flex; align-items:flex-start}
+.wm-star{width:9px; height:9px; margin-left:1px; margin-top:2px; color:#FF9500}
+.wm-tech{font-family:Inter; font-weight:500; font-size:15px; margin-left:6px; margin-top:8px; letter-spacing:-.2px}
+.rail .moon{width:34px;height:34px;flex:none;position:relative}
+.rail .brand .sub{font-size:8.5px; letter-spacing:2.4px; text-transform:uppercase; color:rgba(255,255,255,.5); margin-top:6px; padding-left:2px}
+.railsec{font-size:9px; letter-spacing:1.6px; text-transform:uppercase; color:rgba(255,255,255,.38); padding:16px 10px 6px}
+.navitem{display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; color:rgba(255,255,255,.72);
+  font-size:13.5px; cursor:pointer; transition:.14s; border:none; background:none; width:100%; text-align:left; font-family:inherit}
+.navitem:hover{background:rgba(255,255,255,.07); color:#fff}
+.navitem.on{background:var(--indigo-deep); color:#fff; box-shadow:0 6px 16px rgba(62,39,141,.5)}
+[data-theme="light"] .navitem.on{background:#FF9500; color:#2a1800; box-shadow:0 6px 16px rgba(255,149,0,.4)}
+.navitem .ic{width:16px;height:16px;flex:none;opacity:.9}
+.main{padding:26px 30px 60px; min-width:0}
+
+/* ---------- top strip inside main ---------- */
+.pagehead{display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:6px}
+.pagehead .tt{margin-right:auto}
+.pagehead h2.pt{font-size:23px; font-weight:700; letter-spacing:-.5px; margin:0; color:var(--ink)}
+.pagehead .psub{font-size:12.5px; color:var(--ink-soft); margin-top:4px}
 .controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
 .ctl{display:flex; flex-direction:column; gap:4px}
-.ctl label{font-size:9.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-faint); padding-left:2px}
-.field{height:38px; border:1px solid var(--line-strong); border-radius:11px; background:var(--panel2);
-  padding:0 12px; font:inherit; font-size:13.5px; color:var(--ink); min-width:120px; transition:.15s;}
+.ctl label{font-size:9px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-faint); padding-left:2px}
+.field{height:36px; border:1px solid var(--line-strong); border-radius:9px; background:var(--panel2);
+  padding:0 11px; font:inherit; font-size:13px; color:var(--ink); min-width:118px; transition:.15s}
 .field:focus{outline:none; border-color:var(--indigo); box-shadow:0 0 0 3px var(--indigo-soft)}
 input.field::placeholder{color:var(--ink-faint)}
 .search-wrap{position:relative}
-.search-wrap .field{min-width:190px; padding-left:32px}
-.search-wrap svg{position:absolute; left:10px; top:11px; width:15px; height:15px; stroke:var(--ink-faint)}
-.typeahead{position:absolute; top:42px; left:0; right:0; background:var(--panel-solid); border:1px solid var(--line-strong);
-  border-radius:12px; box-shadow:var(--shadow-lift); z-index:60; max-height:280px; overflow:auto; display:none}
+.search-wrap .field{min-width:184px; padding-left:31px}
+.search-wrap svg{position:absolute; left:10px; top:10px; width:15px; height:15px; stroke:var(--ink-faint)}
+.typeahead{position:absolute; top:40px; left:0; right:0; background:var(--panel-solid); border:1px solid var(--line-strong);
+  border-radius:11px; box-shadow:var(--shadow-lift); z-index:60; max-height:280px; overflow:auto; display:none}
 .typeahead.open{display:block}
 .typeahead .item{padding:9px 12px; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; gap:10px; color:var(--ink)}
 .typeahead .item:hover{background:var(--indigo-soft)}
 .typeahead .item small{color:var(--ink-faint)}
-.btn{height:38px; border:1px solid var(--line-strong); background:var(--panel2); border-radius:11px; padding:0 14px;
-  font:inherit; font-size:13px; color:var(--ink-soft); cursor:pointer; transition:.15s; white-space:nowrap}
+.btn{height:36px; border:1px solid var(--line-strong); background:var(--panel2); border-radius:9px; padding:0 13px;
+  font:inherit; font-size:12.5px; color:var(--ink-soft); cursor:pointer; transition:.15s; white-space:nowrap; display:inline-flex; align-items:center; gap:6px}
 .btn:hover{border-color:var(--indigo); color:var(--indigo-ink)}
+.iconbtn{width:36px; padding:0; justify-content:center; font-size:15px}
 
-/* ---------- report tabs ---------- */
-.tabs{display:flex; gap:8px; margin:16px 0 2px; flex-wrap:wrap; position:relative; z-index:30}
-.tab{border:1px solid var(--line); background:var(--panel); backdrop-filter:blur(8px); color:var(--ink-soft);
-  font:inherit; font-size:12.5px; letter-spacing:.4px; padding:9px 16px; border-radius:12px; cursor:pointer; transition:.15s; box-shadow:var(--shadow)}
-.tab:hover{color:var(--indigo-ink); border-color:var(--indigo)}
-.tab.on{background:var(--indigo)!important; border-color:var(--indigo); color:#fff; box-shadow:0 6px 18px rgba(108,99,255,.35)}
-.report{display:none; animation:fadeUp .25s ease}
-.report.on{display:block}
-@keyframes fadeUp{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
-
-/* ---------- data status bar ---------- */
-.dbar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:14px 0 4px; padding:11px 16px;
-  border:1px solid var(--line); background:var(--panel); backdrop-filter:blur(8px); border-radius:14px; box-shadow:var(--shadow); font-size:12.5px; color:var(--ink-soft)}
-.dot{width:8px; height:8px; border-radius:50%; flex:none}
+.dbar{display:flex; align-items:center; gap:13px; flex-wrap:wrap; margin:16px 0 4px; padding:10px 15px;
+  border:1px solid var(--line); background:var(--panel); border-radius:11px; box-shadow:var(--shadow); font-size:12.5px; color:var(--ink-soft)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
 .dot.live{background:var(--green); box-shadow:0 0 8px var(--green)}
 .dot.sample{background:var(--amber); box-shadow:0 0 8px var(--amber)}
 .dot.err{background:var(--red); box-shadow:0 0 8px var(--red)}
-.dbar .grow{margin-left:auto; display:flex; gap:9px; align-items:center}
+.dbar .grow{margin-left:auto; display:flex; gap:8px; align-items:center}
 .dbar input[type=file]{display:none}
+.diag{margin:8px 2px 0; font-size:12px; color:var(--diag); line-height:1.6; word-break:break-word}
+.diag:empty{display:none}
+.report{display:none; animation:fadeUp .22s ease}
+.report.on{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ---------- KPI tiles ---------- */
-.tiles{display:grid; grid-template-columns:repeat(7,1fr); gap:14px; margin-top:16px}
-.tile{border-radius:var(--radius); border:1px solid var(--line); border-top:3px solid var(--accent,var(--indigo));
-  background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, var(--panel-solid)) 0%, var(--panel-solid) 46%);
-  padding:17px 18px 15px; box-shadow:var(--shadow);
-  transition:transform .18s ease, box-shadow .18s ease; position:relative; overflow:hidden; min-height:132px; min-width:0}
-.tile:hover{transform:translateY(-3px); box-shadow:var(--shadow-lift)}
-.tile .h{font-size:9.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-soft); display:flex; align-items:center; gap:6px}
-.tile .v{font-size:31px; margin-top:12px; letter-spacing:-.5px; line-height:1; color:var(--ink)}
-.tile .cur{font-size:14px; color:var(--ink-faint); margin-right:2px}
-.tile .s{font-size:11.5px; color:var(--ink-soft); margin-top:9px; display:flex; align-items:center; gap:6px; flex-wrap:wrap}
-.chip{font-size:11px; padding:2px 7px; border-radius:20px; background:transparent; border:1px solid var(--line-strong); color:var(--ink-soft)}
+.tiles{display:grid; grid-template-columns:repeat(7,1fr); gap:13px; margin-top:16px}
+.tile{border-radius:var(--radius); border:1px solid var(--line); background:var(--panel-solid); padding:15px 16px 14px;
+  box-shadow:var(--shadow); transition:transform .16s,box-shadow .16s,border-color .16s; position:relative; overflow:hidden; min-height:124px; min-width:0}
+.tile::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent,var(--indigo))}
+.tile:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift)}
+.tile .h{font-size:9px; letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-soft)}
+.tile .v{font-size:30px; font-weight:700; margin-top:11px; letter-spacing:-1px; line-height:1; color:var(--ink); font-feature-settings:'tnum' 1}
+.tile .cur{font-size:13px; font-weight:600; color:var(--ink-faint); margin-right:3px}
+.tile .s{font-size:11px; color:var(--ink-soft); margin-top:8px; display:flex; align-items:center; gap:5px; flex-wrap:wrap}
+.tile.hero .v{color:var(--orange)}
+.chip{font-size:10.5px; padding:2px 7px; border-radius:20px; background:transparent; border:1px solid var(--line-strong); color:var(--ink-soft)}
 .chip.up{color:var(--green); border-color:var(--green)} .chip.down{color:var(--red); border-color:var(--red)}
-.tile.mint{--accent:var(--a-mint)} .tile.pink{--accent:var(--a-pink)} .tile.lilac{--accent:var(--a-lilac)}
-.tile.cream{--accent:var(--a-cream)} .tile.sky{--accent:var(--a-sky)} .tile.peach{--accent:var(--a-peach)}
-.tile.rose{--accent:var(--a-rose)}
-.leads-input{width:64px; height:26px; border:1px solid var(--line-strong); border-radius:8px; background:var(--panel2);
-  font:inherit; font-size:12px; text-align:center; padding:0 4px; color:var(--ink)}
+.tile.mint{--accent:var(--green)} .tile.sky{--accent:var(--indigo)} .tile.lilac{--accent:var(--mauve)}
+.tile.rose{--accent:var(--red)} .tile.peach{--accent:var(--orange)} .tile.cream{--accent:var(--mauve)} .tile.pink{--accent:var(--orange)}
+.leads-input{width:60px;height:25px;border:1px solid var(--line-strong);border-radius:7px;background:var(--panel2);font:inherit;font-size:12px;text-align:center;padding:0 4px;color:var(--ink)}
+.periodNote{font-size:11px; color:var(--ink-faint); margin:10px 2px 0}
 
 /* ---------- panels ---------- */
-.grid2{display:grid; grid-template-columns:1.6fr 1fr; gap:16px; margin-top:16px}
-.grid2b{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-top:16px}
-.panel{background:var(--panel); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; min-width:0}
-.panel h2{font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; font-weight:500}
-.panel .lede{font-size:12px; color:var(--ink-faint); margin:0 0 16px}
+.grid2{display:grid; grid-template-columns:1.6fr 1fr; gap:15px; margin-top:15px}
+.grid2b{display:grid; grid-template-columns:1.3fr 1fr; gap:15px; margin-top:15px}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; min-width:0}
+.panel h3{font-size:11px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; font-weight:600}
+.panel .lede{font-size:12px; color:var(--ink-faint); margin:0 0 15px}
 
 .chart{width:100%; height:270px}
 .chart .bar{transition:.2s; cursor:pointer}
 .chart .bar:hover{opacity:.82}
 .chart text{font-size:10px; fill:var(--ink-faint); font-variant-numeric:tabular-nums}
-.tt{position:fixed; pointer-events:none; background:var(--panel-solid); border:1px solid var(--line-strong); color:var(--ink); font-size:11.5px; padding:8px 10px;
-  border-radius:9px; opacity:0; transition:opacity .12s; z-index:80; white-space:nowrap; box-shadow:var(--shadow-lift)}
-.tt b{font-weight:500}
-.legend{display:flex; gap:16px; font-size:11px; color:var(--ink-soft); margin-top:6px; flex-wrap:wrap}
-.legend i{width:12px; height:3px; display:inline-block; border-radius:2px; margin-right:6px; vertical-align:middle}
-.legend .dotl{width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:6px; vertical-align:middle}
+.tt{position:fixed; pointer-events:none; background:var(--panel-solid); border:1px solid var(--line-strong); color:var(--ink); font-size:11.5px; padding:8px 10px; border-radius:9px; opacity:0; transition:opacity .12s; z-index:80; white-space:nowrap; box-shadow:var(--shadow-lift)}
+.tt b{font-weight:600}
+.legend{display:flex; gap:15px; font-size:11px; color:var(--ink-soft); margin-top:6px; flex-wrap:wrap}
+.legend i{width:12px;height:3px;display:inline-block;border-radius:2px;margin-right:6px;vertical-align:middle}
+.legend .dotl{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
 
 .acqlog{max-height:340px; overflow:auto; margin:-4px -6px 0; padding:0 6px}
 .acqmonth{border-top:1px solid var(--line); padding:11px 0 9px}
 .acqmonth:first-child{border-top:none}
 .acqmonth .mh{display:flex; justify-content:space-between; align-items:center; margin-bottom:7px}
-.acqmonth .mh .mn{font-size:12px; color:var(--ink-soft); letter-spacing:.4px}
+.acqmonth .mn{font-size:12px; color:var(--ink-soft)}
 .badge{font-size:11px; background:var(--indigo-soft); color:var(--indigo-ink); border-radius:20px; padding:2px 9px}
 .acqmonth .brands{display:flex; flex-wrap:wrap; gap:6px}
 .bpill{font-size:11.5px; background:var(--panel2); border:1px solid var(--line-strong); border-radius:8px; padding:4px 9px; color:var(--ink)}
 .acqtotal{border-top:2px solid var(--line-strong); margin-top:6px; padding-top:11px; display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft)}
 
-.aging{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:12px}
-.aging-head{display:flex; justify-content:space-between; gap:16px; padding:14px 16px; border:1px solid var(--line); border-radius:13px; background:var(--panel2)}
+.aging-head{display:flex; justify-content:space-between; gap:16px; padding:14px 16px; border:1px solid var(--line); border-radius:11px; background:var(--panel2)}
 .aging-head .al{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint)}
-.aging-head .av{font-size:23px; margin-top:6px; color:var(--ink)}
+.aging-head .av{font-size:24px; font-weight:700; margin-top:6px; color:var(--ink); letter-spacing:-.6px}
 .aging-head .cur{font-size:12px; color:var(--ink-faint); margin-right:2px}
 .aging-head .ac{font-size:11px; color:var(--ink-faint); margin-top:4px}
-.agebox{border:1px solid var(--line); border-radius:13px; padding:14px; background:var(--panel2)}
-.agebox .al{font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint)}
-.agebox .av{font-size:20px; margin-top:8px; color:var(--ink)}
-.agebox .ac{font-size:11px; color:var(--ink-faint); margin-top:4px}
-.agebox.warn{background:var(--amber-soft); border-color:var(--amber)}
-.agebox.bad{background:var(--red-soft); border-color:var(--red)}
 
 table{width:100%; border-collapse:collapse; font-size:12.5px}
-th{text-align:left; font-weight:500; color:var(--ink-faint); font-size:10px; letter-spacing:.8px; text-transform:uppercase;
-  padding:8px 10px; border-bottom:1px solid var(--line-strong); user-select:none; white-space:nowrap}
-td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle}
+th{text-align:left; font-weight:600; color:var(--ink-faint); font-size:10px; letter-spacing:.7px; text-transform:uppercase; padding:8px 9px; border-bottom:1px solid var(--line-strong); white-space:nowrap}
+td{padding:9px; border-bottom:1px solid var(--line); vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tbody tr:hover{background:var(--indigo-soft)}
+.agetable td{font-size:12px}
 .pill{font-size:11px; padding:3px 9px; border-radius:20px; display:inline-block; white-space:nowrap}
 .pill.green{background:var(--green-soft); color:var(--green)}
 .pill.amber{background:var(--amber-soft); color:var(--amber)}
@@ -225,17 +183,16 @@ tbody tr:hover{background:var(--indigo-soft)}
 .pill.grey{background:var(--indigo-soft); color:var(--ink-soft)}
 
 .phases{display:inline-flex; gap:3px; align-items:center}
-.ph{width:11px; height:11px; border-radius:50%; border:1.5px solid var(--indigo-ink); overflow:hidden}
-.ph.on{background:var(--indigo-ink); box-shadow:0 0 6px var(--indigo-soft)} .ph.off{background:transparent}
+.ph{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--mauve);overflow:hidden}
+.ph.on{background:var(--mauve)} .ph.off{background:transparent}
 .mlabel{font-size:11px; color:var(--ink-soft); margin-left:6px; font-variant-numeric:tabular-nums}
 
-.ledger-controls{display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap}
-.seg{display:inline-flex; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:3px}
-.seg button{border:none; background:none; font:inherit; font-size:12px; color:var(--ink-soft); padding:6px 12px; border-radius:8px; cursor:pointer}
+.seg{display:inline-flex; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:3px}
+.seg button{border:none; background:none; font:inherit; font-size:12px; color:var(--ink-soft); padding:6px 12px; border-radius:7px; cursor:pointer}
 .seg button.on{background:var(--indigo-soft); color:var(--indigo-ink)}
-.client{border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; background:var(--panel)}
-.client summary{list-style:none; cursor:pointer; padding:14px 18px; display:grid;
-  grid-template-columns:1.7fr .9fr 1fr 1fr .9fr; gap:12px; align-items:center}
+.ledger-controls{display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap}
+.client{border:1px solid var(--line); border-radius:11px; margin-bottom:9px; overflow:hidden; background:var(--panel)}
+.client summary{list-style:none; cursor:pointer; padding:13px 16px; display:grid; grid-template-columns:1.7fr .9fr 1fr 1fr .9fr; gap:12px; align-items:center}
 .client summary::-webkit-details-marker{display:none}
 .client summary:hover{background:var(--indigo-soft)}
 .client[open] summary{border-bottom:1px solid var(--line)}
@@ -243,251 +200,302 @@ tbody tr:hover{background:var(--indigo-soft)}
 .cname .caret{transition:.2s; color:var(--ink-faint)}
 .client[open] .cname .caret{transform:rotate(90deg)}
 .cmeta{font-size:11px; color:var(--ink-faint)}
-.cmeta b{font-weight:400; color:var(--ink); font-size:13px}
-.cbody{padding:6px 18px 16px}
+.cmeta b{font-weight:600; color:var(--ink); font-size:13px}
+.cbody{padding:6px 16px 14px}
 .cbody table{font-size:12px}
 .hint{font-size:11px; color:var(--ink-faint)}
+.mono{font-variant-numeric:tabular-nums; letter-spacing:-.1px}
 .arpa-work{margin-top:14px; border-top:1px solid var(--line); padding-top:14px}
-.mono{font-variant-numeric:tabular-nums}
-.footnote{font-size:11px; color:var(--ink-faint); margin-top:28px; text-align:center; line-height:1.7}
-.checks{margin-top:12px; border:1px solid var(--check-bd); background:var(--check-bg); border-radius:14px; padding:12px 16px; font-size:12.5px; color:var(--check-ink)}
-.diag{margin:8px 4px 0; font-size:12px; color:var(--diag); line-height:1.6; word-break:break-word}
-.diag:empty{display:none}
-.checks b{font-weight:500}
-.checks ul{margin:7px 0 0; padding-left:18px} .checks li{margin:3px 0}
-::-webkit-scrollbar{width:10px;height:10px}
+.dropbtn{font:inherit; font-size:11px; padding:4px 10px; border-radius:8px; cursor:pointer; border:1px solid var(--line-strong); background:transparent; color:var(--ink-soft); transition:.15s; white-space:nowrap}
+.dropbtn:hover{border-color:var(--red); color:var(--red)}
+.dropbtn.on{background:var(--red-soft); border-color:var(--red); color:var(--red)}
+.droppedrow td{opacity:.62}
+.checks{margin-top:12px; border:1px solid var(--check-bd); background:var(--check-bg); border-radius:12px; padding:12px 15px; font-size:12.5px; color:var(--check-ink)}
+.checks b{font-weight:600} .checks ul{margin:7px 0 0; padding-left:18px} .checks li{margin:3px 0}
+.footnote{font-size:11px; color:var(--ink-faint); margin-top:26px; text-align:center; line-height:1.7}
+
+/* ---------- brand build ---------- */
+.wf-top{display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:6px}
+.wf-read .wf-l{font-size:10px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-soft)}
+.wf-read .wf-v{font-size:30px; font-weight:700; letter-spacing:-1px; margin-top:6px; color:var(--ink)}
+.wf-read .wf-arrow{color:var(--ink-faint); font-weight:400; margin:0 4px}
+.wf-read #wfTo{color:var(--green)}
+.wf-read .wf-c{font-size:11.5px; color:var(--ink-faint); margin-top:5px}
+.wf-assume{text-align:right}
+.wf-assume label{font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-soft); display:block; margin-bottom:5px}
+.wf-assume-in{font-size:14px; color:var(--ink); font-weight:600}
+.wf-slider{margin:14px 0 6px}
+.wf-slabel{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-soft); margin-bottom:6px}
+.wf-slabel b{color:var(--orange); font-size:14px}
+input[type=range]{-webkit-appearance:none; appearance:none; height:6px; border-radius:6px; background:var(--panel2); border:1px solid var(--line); outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--orange); border:2px solid var(--panel-solid); cursor:pointer; box-shadow:0 2px 6px rgba(255,149,0,.5)}
+input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; background:var(--orange); border:2px solid var(--panel-solid); cursor:pointer}
+
+.bb-head{display:grid; grid-template-columns:repeat(4,1fr); gap:13px; margin-bottom:16px}
+.bbstat{border:1px solid var(--line); border-radius:11px; padding:15px 16px; background:var(--panel-solid); position:relative; overflow:hidden}
+.bbstat::before{content:""; position:absolute; left:0;top:0;bottom:0;width:3px; background:var(--accent,var(--indigo))}
+.bbstat .l{font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-soft)}
+.bbstat .v{font-size:26px; font-weight:700; margin-top:8px; color:var(--ink); letter-spacing:-.8px}
+.bbstat .c{font-size:11px; color:var(--ink-faint); margin-top:5px}
+.bbstat.clickable{cursor:pointer; transition:transform .14s,box-shadow .14s,border-color .14s}
+.bbstat.clickable:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift)}
+.bbstat.sel{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent) inset}
+.movetag{font-size:10px; font-weight:600; padding:2px 7px; border-radius:6px; letter-spacing:.3px}
+.movetag.m1{background:var(--orange-soft); color:var(--orange)}
+.movetag.m2{background:var(--green-soft); color:var(--green)}
+.movetag.m3{background:var(--indigo-soft); color:var(--indigo-ink)}
+.gapbar{height:7px; border-radius:6px; background:var(--panel2); overflow:hidden; margin-top:7px; border:1px solid var(--line)}
+.gapbar>span{display:block; height:100%; background:linear-gradient(90deg,var(--indigo),var(--mauve))}
+.oppcard{border:1px solid var(--line); border-radius:11px; padding:14px 16px; margin-bottom:10px; background:var(--panel); display:grid; grid-template-columns:1.4fr 1fr 1fr 1.5fr; gap:14px; align-items:center}
+.oppcard .bn{font-size:14px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:8px}
+.oppcard .sm{font-size:11px; color:var(--ink-faint); margin-top:3px}
+.oppcard .fig{font-size:12px; color:var(--ink-soft)}
+.oppcard .fig b{font-weight:600; color:var(--ink); font-size:15px; display:block; margin-top:2px}
+.playbook{font-size:11.5px; color:var(--ink-soft); line-height:1.55}
+.playbook .lift{color:var(--orange); font-weight:600}
+::-webkit-scrollbar{width:9px;height:9px}
 ::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:6px}
 ::-webkit-scrollbar-track{background:transparent}
-@media (max-width:1440px){ .tiles{grid-template-columns:repeat(4,1fr)} .aging{grid-template-columns:repeat(2,1fr)} }
-@media (max-width:1080px){ .tiles{grid-template-columns:repeat(3,1fr)} .grid2,.grid2b{grid-template-columns:1fr} .tabs{top:auto; position:static} }
-@media (max-width:620px){ .tiles{grid-template-columns:repeat(2,1fr)}
-  .client summary{grid-template-columns:1fr; gap:6px} .wrap{padding:16px} }
-@media (prefers-reduced-motion:reduce){ *{transition:none!important; animation:none!important} }
-
-/* let the animated sky show faintly through cards */
-.panel{background:color-mix(in srgb, var(--panel-solid) 93%, transparent)!important}
-.tile{background:linear-gradient(180deg, color-mix(in srgb, var(--accent,var(--indigo)) 9%, color-mix(in srgb, var(--panel-solid) 92%, transparent)) 0%, color-mix(in srgb, var(--panel-solid) 92%, transparent) 46%)!important}
-.dbar,.tab:not(.on){background:color-mix(in srgb, var(--panel-solid) 92%, transparent)!important}
-.client{background:color-mix(in srgb, var(--panel-solid) 93%, transparent)}
-.dropbtn{font:inherit;font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:transparent;color:var(--ink-soft);transition:.15s;white-space:nowrap}
-.dropbtn:hover{border-color:var(--red);color:var(--red)}
-.dropbtn.on{background:var(--red-soft);border-color:var(--red);color:var(--red)}
-.droppedrow td{opacity:.72}
-.agetable th,.agetable td{padding:8px 9px}
-.agetable td{font-size:12px}
+@media (max-width:1400px){ .tiles{grid-template-columns:repeat(4,1fr)} .bb-head{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:1100px){ .app{grid-template-columns:1fr} .rail{position:static; height:auto; flex-direction:row; flex-wrap:wrap; overflow:visible} .rail .brand{width:100%} .railsec{display:none} .tiles{grid-template-columns:repeat(3,1fr)} .grid2,.grid2b{grid-template-columns:1fr} .oppcard{grid-template-columns:1fr 1fr} }
+@media (max-width:640px){ .tiles{grid-template-columns:repeat(2,1fr)} .client summary{grid-template-columns:1fr;gap:6px} .main{padding:16px} .oppcard{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
 </style>
 </head>
 <body>
 <canvas id="sky"></canvas>
-<div class="wrap">
+<div class="app">
 
-  <header class="top">
-    <canvas id="hsky"></canvas>
+  <aside class="rail">
     <div class="brand">
-      <div class="moon" aria-hidden="true"></div>
-      <div>
-        <h1>Moontech</h1>
-        <div class="sub">Client Profile</div>
+      <div class="wordmark">
+        <span class="wm-moon">MOON<svg class="wm-star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5 C13 8.5 15.5 11 22.5 12 C15.5 13 13 15.5 12 22.5 C11 15.5 8.5 13 1.5 12 C8.5 11 11 8.5 12 1.5Z" fill="currentColor"/></svg></span><span class="wm-tech">Tech</span>
       </div>
+      <div class="sub">Client Profile</div>
     </div>
-    <div class="controls">
-      <div class="ctl">
-        <label for="monthSel">Month</label>
-        <select id="monthSel" class="field"></select>
+    <div class="railsec">Reports</div>
+    <button class="navitem on" data-r="overview"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Overview &amp; ARPA</button>
+    <button class="navitem" data-r="build"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M6 21V9l6-4 6 4v12"/><path d="M10 21v-6h4v6"/></svg>Brand Build</button>
+    <button class="navitem" data-r="growth"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Growth</button>
+    <button class="navitem" data-r="velocity"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>ROAS Velocity</button>
+    <button class="navitem" data-r="ledger"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M4 9h16M9 5v14"/></svg>Client Ledger</button>
+    <div class="railsec">View</div>
+    <button class="navitem" id="themeItem"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg><span id="themeLbl">Light mode</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="pagehead">
+      <div class="tt">
+        <h2 class="pt" id="pageTitle">Overview &amp; ARPA</h2>
+        <div class="psub" id="pageSub"></div>
       </div>
-      <div class="ctl">
-        <label for="search">Client</label>
-        <div class="search-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
-          <input id="search" class="field" placeholder="Search brand or invoice…" autocomplete="off">
-          <div id="typeahead" class="typeahead"></div>
+      <div class="controls">
+        <div class="ctl"><label for="monthSel">Period</label><select id="monthSel" class="field"></select></div>
+        <div class="ctl"><label for="search">Client</label>
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+            <input id="search" class="field" placeholder="Search brand or invoice…" autocomplete="off">
+            <div id="typeahead" class="typeahead"></div>
+          </div>
         </div>
+        <div class="ctl"><label>&nbsp;</label><button class="btn" id="resetBtn">Reset</button></div>
       </div>
-      <button class="btn" id="resetBtn">Reset</button>
-      <button class="btn themeBtn" id="themeBtn" title="Switch theme">☀</button>
     </div>
-  </header>
 
-  <div class="dbar">
-    <span class="dot" id="srcDot"></span>
-    <span id="srcMsg">Loading…</span>
-    <span class="grow">
-      <span id="asOf" class="hint"></span>
-      <label class="btn" for="fileInput">Upload CSV</label>
-      <input type="file" id="fileInput" accept=".csv">
-      <button class="btn" id="sampleBtn">Load sample</button>
-      <button class="btn" id="refreshBtn">Refresh</button>
-    </span>
-  </div>
-  <p class="diag" id="diag"></p>
+    <div class="dbar">
+      <span class="dot" id="srcDot"></span><span id="srcMsg">Loading…</span>
+      <span class="grow">
+        <span id="asOf" class="hint"></span>
+        <label class="btn" for="fileInput">Upload CSV</label>
+        <input type="file" id="fileInput" accept=".csv">
+        <button class="btn" id="sampleBtn">Sample</button>
+        <button class="btn" id="refreshBtn">Refresh</button>
+        <button class="btn" id="exportBtn" style="border-color:var(--orange);color:var(--orange)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 19h16"/></svg>Export ROAS model</button>
+      </span>
+    </div>
+    <p class="diag" id="diag"></p>
 
-  <!-- REPORT NAV -->
-  <nav class="tabs" id="tabs">
-    <button class="tab on" data-r="overview">Overview &amp; ARPA</button>
-    <button class="tab" data-r="growth">Growth &amp; Acquisition</button>
-    <button class="tab" data-r="velocity">ROAS Velocity</button>
-    <button class="tab" data-r="ledger">Client Ledger</button>
-  </nav>
-
-  <!-- REPORT 1 : OVERVIEW & ARPA -->
-  <section class="report on" id="r-overview">
-    <section class="tiles" id="tiles"></section>
-    <p class="hint" id="periodNote" style="margin:10px 2px 0"></p>
-    <div id="dataChecks"></div>
-    <section class="grid2b">
-      <div class="panel">
-        <h2>ARPA workings <span class="hint" style="text-transform:none;letter-spacing:0"> — audit trail</span></h2>
-        <p class="lede">Paid ROAS clients only (plus approved anomalies). Values from the sheet's $ Amount column, net of <span id="vatLbl"></span>% VAT where marked "VAT Included". ≤ M2 uses ROAS spend to date; &gt; M2 annualises the latest paid ROAS invoice.</p>
-        <div class="arpa-work" id="arpaWork"></div>
-      </div>
-      <div class="panel">
-        <h2>Collections &amp; ageing</h2>
-        <p class="lede">Invoiced, not yet paid or cancelled, by days past due (AED, gross).</p>
-        <div id="aging"></div>
-      </div>
+    <!-- OVERVIEW -->
+    <section class="report on" id="r-overview">
+      <section class="tiles" id="tiles"></section>
+      <p class="periodNote" id="periodNote"></p>
+      <div id="dataChecks"></div>
+      <section class="grid2b">
+        <div class="panel">
+          <h3>ARPA workings — audit trail</h3>
+          <p class="lede">Paid ROAS clients (plus approved anomalies). USD from the $ Amount column, net of <span id="vatLbl"></span>% VAT where marked Included, less refunds. ≤ M2 = ROAS spend to date; &gt; M2 = latest paid ROAS invoice × 12 (unless Dropped → year-to-date spend).</p>
+          <div class="arpa-work" id="arpaWork"></div>
+        </div>
+        <div class="panel">
+          <h3>Collections &amp; ageing</h3>
+          <p class="lede">Invoiced, not yet paid or cancelled — each pending invoice, most overdue first.</p>
+          <div id="aging"></div>
+        </div>
+      </section>
     </section>
-  </section>
 
-  <!-- REPORT 2 : GROWTH -->
-  <section class="report" id="r-growth">
-    <section class="grid2">
+    <!-- BRAND BUILD -->
+    <section class="report" id="r-build">
+      <div class="bb-head" id="bbHead"></div>
+
       <div class="panel">
-        <h2>Monthly trend</h2>
-        <p class="lede">Revenue collected each month (bars, AED) against new brands won that month (line).</p>
-        <svg class="chart" id="chart" viewBox="0 0 760 270" preserveAspectRatio="xMidYMid meet"></svg>
+        <h3>ARPA build — promote brands to M3 and watch the average climb</h3>
+        <p class="lede">M3 is where a brand switches to annualised billing — the lever that lifts ARPA. Drag to promote your closest-to-M3 brands and see where the fleet average lands against the $<span id="bbTargetLbl"></span>K target. Promoted brands are valued at the <span id="bbAssumeLbl"></span> (editable).</p>
+        <div class="wf-top">
+          <div class="wf-read">
+            <div class="wf-l">Projected ARPA</div>
+            <div class="wf-v"><span class="num" id="wfFrom">$0</span> <span class="wf-arrow">&#8594;</span> <span class="num" id="wfTo">$0</span></div>
+            <div class="wf-c" id="wfNote"></div>
+          </div>
+          <div class="wf-assume">
+            <label>Promoted brand worth</label>
+            <div class="wf-assume-in">$<input type="number" id="bbAssume" class="leads-input" style="width:82px" min="0" step="1000"></div>
+            <div class="hint" id="bbAssumeHint"></div>
+          </div>
+        </div>
+        <div class="wf-slider">
+          <div class="wf-slabel"><span>Promote <b id="wfN">0</b> brand(s) to M3</span><span class="hint" id="wfPool"></span></div>
+          <input type="range" id="wfRange" min="0" value="0" step="1" style="width:100%">
+        </div>
+        <svg class="chart" id="wfChart" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="legend">
-          <span><i style="background:var(--indigo)"></i>Revenue collected (AED)</span>
-          <span><span class="dotl" style="background:var(--green)"></span>New brands won</span>
-          <span style="color:var(--ink-faint)">Hatched bar / dashed line = current month, still in progress</span>
+          <span><i style="background:var(--indigo)"></i>Current average</span>
+          <span><i style="background:var(--green)"></i>Promotion uplift</span>
+          <span><i style="background:var(--orange)"></i>$<span id="bbTargetLbl3"></span>K target</span>
         </div>
       </div>
+
+      <div class="panel" style="margin-top:15px">
+        <h3>Path to $<span id="bbTargetLbl2"></span>K — non-dropped ROAS clients below target</h3>
+        <p class="lede">Each active brand's move to M3 and the ARPA lift it delivers. Click a header tile to filter. Mark Dropped to remove from the plan.</p>
+        <div id="bbList"></div>
+      </div>
+    </section>
+
+    <!-- GROWTH -->
+    <section class="report" id="r-growth">
+      <section class="grid2">
+        <div class="panel">
+          <h3>Monthly trend</h3>
+          <p class="lede">Revenue collected each month (bars, AED) vs new brands won (line).</p>
+          <svg class="chart" id="chart" viewBox="0 0 760 270" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="legend">
+            <span><i style="background:var(--indigo)"></i>Revenue collected (AED)</span>
+            <span><span class="dotl" style="background:var(--green)"></span>New brands won</span>
+            <span style="color:var(--ink-faint)">Hatched / dashed = current month, in progress</span>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Acquisition log</h3>
+          <p class="lede">New brands, dated by first paid invoice.</p>
+          <div class="acqlog" id="acqlog"></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- VELOCITY -->
+    <section class="report" id="r-velocity">
       <div class="panel">
-        <h2>Acquisition log</h2>
-        <p class="lede">New brands, dated by their first paid invoice.</p>
-        <div class="acqlog" id="acqlog"></div>
+        <h3>ROAS velocity</h3>
+        <p class="lede" id="velSummary"></p>
+        <div style="overflow-x:auto"><table id="velTable"></table></div>
       </div>
     </section>
-  </section>
 
-  <!-- REPORT 3 : ROAS VELOCITY -->
-  <section class="report" id="r-velocity">
-    <section class="panel" style="margin-top:16px">
-      <h2>ROAS velocity</h2>
-      <p class="lede" id="velSummary"></p>
-      <div style="overflow-x:auto"><table id="velTable"></table></div>
-    </section>
-  </section>
-
-  <!-- REPORT 4 : CLIENT LEDGER -->
-  <section class="report" id="r-ledger">
-    <section class="panel" style="margin-top:16px">
-      <h2>Client ledger</h2>
-      <p class="lede">Every client's invoices, payment status and current ROAS milestone. Click to expand.</p>
-      <div class="ledger-controls">
-        <div class="seg" id="ledgerFilter">
-          <button data-f="all" class="on">All</button>
-          <button data-f="paid">Has paid</button>
-          <button data-f="outstanding">Outstanding</button>
-          <button data-f="roas">ROAS only</button>
+    <!-- LEDGER -->
+    <section class="report" id="r-ledger">
+      <div class="panel">
+        <h3>Client ledger</h3>
+        <p class="lede">Every client's invoices, payment status and current ROAS milestone. Click to expand.</p>
+        <div class="ledger-controls">
+          <div class="seg" id="ledgerFilter">
+            <button data-f="all" class="on">All</button>
+            <button data-f="paid">Has paid</button>
+            <button data-f="outstanding">Outstanding</button>
+            <button data-f="roas">ROAS only</button>
+          </div>
+          <span class="hint" id="ledgerCount"></span>
         </div>
-        <span class="hint" id="ledgerCount"></span>
+        <div id="ledger"></div>
       </div>
-      <div id="ledger"></div>
     </section>
-  </section>
 
-  <div class="footnote" id="footnote"></div>
+    <div class="footnote" id="footnote"></div>
+  </main>
 </div>
-
 <div class="tt" id="tooltip"></div>
 <script>
-/* =====================================================================
-   MOONTECH CLIENT PROFILE — computation + render
-   Status only from "Invoice Status". Milestones only from "ROAS- Milestone".
-   Grouping by the sheet's "Brand Name" column. ARPA reads the "$ Amount"
-   column, net of VAT where the "VAT" column says Included; paid rows only.
-   ===================================================================== */
-
 const F = {
-  aed: n => "AED " + Math.round(n||0).toLocaleString("en-US"),
-  usd: n => "$" + Math.round(n||0).toLocaleString("en-US"),
-  int: n => (n||0).toLocaleString("en-US"),
-  pct: n => (n>=0?"+":"") + n.toFixed(1) + "%",
-  date: d => d ? String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0")+"/"+d.getFullYear() : "—",
-  ym: d => d ? d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0") : null,
-  ymLabel: k => { const [y,m]=k.split("-"); return new Date(y,m-1,1).toLocaleString("en-US",{month:"short"})+" "+y.slice(2); }
+  aed:n=>"AED "+Math.round(n||0).toLocaleString("en-US"),
+  usd:n=>"$"+Math.round(n||0).toLocaleString("en-US"),
+  int:n=>(n||0).toLocaleString("en-US"),
+  pct:n=>(n>=0?"+":"")+n.toFixed(1)+"%",
+  date:d=>d?String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0")+"/"+d.getFullYear():"—",
+  ym:d=>d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"):null,
+  ymLabel:k=>{const[y,m]=k.split("-");return new Date(y,m-1,1).toLocaleString("en-US",{month:"short"})+" "+y.slice(2)}
 };
-const parseDate = v => {
-  if(!v) return null; v=String(v).trim(); if(!v||/^n\/?a$/i.test(v)) return null;
-  let m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if(m){ let[_,a,b,y]=m; y=y.length===2?"20"+y:y; return new Date(+y,+a-1,+b); }
-  m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(m){ return new Date(+m[1],+m[2]-1,+m[3]); }
-  const d=new Date(v); return isNaN(d)?null:d;
-};
-const parseAmt = v => { if(v==null) return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(n)?0:n; };
-const parseMile = v => { const m=String(v||"").match(/milestone[\s\-]*([1-5])/i); return m?+m[1]:null; };
-const norm = s => String(s||"").trim().toLowerCase().replace(/[\s\-]+/g," ");
+const parseDate=v=>{ if(!v)return null; v=String(v).trim(); if(!v||/^n\/?a$/i.test(v))return null;
+  let m=v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/); if(m){let[_,a,b,y]=m;y=y.length===2?"20"+y:y;return new Date(+y,+a-1,+b);}
+  m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  const d=new Date(v); return isNaN(d)?null:d; };
+const parseAmt=v=>{ if(v==null)return 0; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(n)?0:n; };
+const parseMile=v=>{ const m=String(v||"").match(/milestone[\s\-]*([1-5])/i); return m?+m[1]:null; };
+const norm=s=>String(s||"").trim().toLowerCase().replace(/[\s\-]+/g," ");
 
-const HKEYS = {
+const HKEYS={
   invoice:["invoice"], client:["client name"], brandCol:["brand name"], desc:["description"], brand:["brand"],
   mile:["roas milestone","roas- milestone","roas-milestone"], invDate:["invoice date"],
   terms:["payment terms"], due:["due date"], pastDue:["days past due"], total:["total"],
   status:["invoice status"], amend:["ammendment details","amendment details"],
-  vat:["vat"], usd:["$ amount","amount $","usd amount","$amount"],
+  vat:["vat"], usd:["$ amount","amount $","usd amount","$amount"], refund:["refunds","refund","refund ($)","refunds ($)","refund $"],
   payDate:["payment receipt date","payment recepit date","payment reciept date"],
   daysToPay:["days between invoicing and payment"], today:["todays date","today's date"]
 };
-function buildMap(headers){
-  const map={}; const H=headers.map(norm);
-  for(const key in HKEYS){ for(const cand of HKEYS[key]){ const i=H.indexOf(norm(cand)); if(i>=0){ map[key]=headers[i]; break; } } }
-  return map;
-}
+function buildMap(h){ const map={}, H=h.map(norm);
+  for(const k in HKEYS) for(const c of HKEYS[k]){ const i=H.indexOf(norm(c)); if(i>=0){map[k]=h[i];break;} } return map; }
 
-let STATE = { rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", dropped:new Set() };
+let STATE={ rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", dropped:new Set() };
 
-/* USD value of one invoice for ARPA: $ Amount column when present, else
-   AED Total / peg; stripped of VAT when the VAT column says Included. */
+/* USD value of one invoice for ARPA: $ Amount (or AED/peg), net of VAT-included, net of refund. */
 function usdNet(i){
-  const gross = i.usd || (i.total / CONFIG.AED_PER_USD);
-  return i.vatInc ? gross / (1 + CONFIG.VAT_RATE) : gross;
+  let gross = i.usd || (i.total/CONFIG.AED_PER_USD);
+  if(i.vatInc) gross = gross/(1+CONFIG.VAT_RATE);
+  const refund = i.refundUsd || (i.refundAed? i.refundAed/CONFIG.AED_PER_USD : 0);
+  return Math.max(0, gross - refund);
 }
 
 function normalizeRows(raw, headers){
-  const map = buildMap(headers);
-  const get = (r,k)=> map[k]!==undefined ? r[map[k]] : "";
-  const rows = raw.map(r=>{
-    const status = String(get(r,"status")||"").trim();
-    const client = tidy(get(r,"client"));
-    const brandCell = tidy(get(r,"brandCol"));
+  const map=buildMap(headers), get=(r,k)=> map[k]!==undefined? r[map[k]] : "";
+  const rows=raw.map(r=>{
+    const status=String(get(r,"status")||"").trim();
+    const client=tidy(get(r,"client")), brandCell=tidy(get(r,"brandCol"));
+    const refundRaw=get(r,"refund");
+    const refundVal=parseAmt(refundRaw);
+    const refundIsUsd = /\$/.test(String(refundRaw)) || !/aed/i.test(String(refundRaw)); // $ column assumed unless AED noted
     return {
-      invoice:String(get(r,"invoice")||"").trim(),
-      client,
-      brand: brandCell || brandName(client),
-      brandFromSheet: !!brandCell,
+      invoice:String(get(r,"invoice")||"").trim(), client,
+      brand: brandCell || brandName(client), brandFromSheet:!!brandCell,
       desc:String(get(r,"desc")||"").trim(),
       isNew:/new brand/i.test(get(r,"brand")||""),
       mile:parseMile(get(r,"mile")),
-      invDate:parseDate(get(r,"invDate")),
-      due:parseDate(get(r,"due")),
-      pastDue:parseAmt(get(r,"pastDue")),
-      total:parseAmt(get(r,"total")),
+      invDate:parseDate(get(r,"invDate")), due:parseDate(get(r,"due")),
+      pastDue:parseAmt(get(r,"pastDue")), total:parseAmt(get(r,"total")),
       usd:parseAmt(get(r,"usd")),
+      refundUsd: refundVal && refundIsUsd ? refundVal : 0,
+      refundAed: refundVal && !refundIsUsd ? refundVal : 0,
       vatInc:/includ/i.test(String(get(r,"vat")||"")),
       status, isPaid:/^paid$/i.test(status), isCancelled:/^cancelled$/i.test(status),
-      payDate:parseDate(get(r,"payDate")),
-      todayRaw:get(r,"today")
+      payDate:parseDate(get(r,"payDate")), todayRaw:get(r,"today")
     };
   }).filter(r=> r.client || r.invoice);
   let today=null; for(const r of rows){ const d=parseDate(r.todayRaw); if(d){today=d;break;} }
   if(!today){ for(const h of headers){ const d=parseDate(h); if(d){today=d;break;} } }
-  return {rows, today: today || new Date()};
+  return {rows, today: today||new Date()};
 }
 
-/* ---------- brand aggregation ---------- */
 function byClient(rows){
   const m=new Map();
-  for(const r of rows){ const k=r.brand||r.client; if(!k) continue; if(!m.has(k)) m.set(k,[]); m.get(k).push(r); }
+  for(const r of rows){ const k=r.brand||r.client; if(!k)continue; if(!m.has(k))m.set(k,[]); m.get(k).push(r); }
   const out=[];
   for(const [name,invs] of m){
     const paid=invs.filter(i=>i.isPaid);
@@ -506,665 +514,671 @@ function byClient(rows){
   return out;
 }
 
-/* ---------- ARPA (paid rows only, $ net of VAT) ---------- */
+/* ARPA. Drop model:
+   - M1/M2 dropped: no effect on ARPA (already spend-to-date). Flag only.
+   - M3+ dropped: de-annualise -> YTD paid ROAS spend.
+   Every invoice value already net of VAT + refund via usdNet(). */
 function computeARPA(clients){
-  const includeList=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
+  const inc=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
+  const isAnom=c=>inc.includes(String(c.name).toLowerCase());
   const rowsWork=[];
-  const isAnomaly = c => includeList.includes(String(c.name).toLowerCase());
-  const qualifying=clients.filter(c=> c.hasPaid && (c.paidLevel || isAnomaly(c)));
-  const excluded=clients.filter(c=> c.hasPaid && !c.paidLevel && !isAnomaly(c)).length;
+  const qualifying=clients.filter(c=> c.hasPaid && (c.paidLevel||isAnom(c)));
+  const excluded=clients.filter(c=> c.hasPaid && !c.paidLevel && !isAnom(c)).length;
   for(const c of qualifying){
-    let usd, basis, latest=null;
-    const roasPaid=c.paid.filter(i=>i.mile);                    // paid ROAS invoices only
-    if(!c.paidLevel){                                            // approved anomaly (e.g. Jetour, CPL)
-      usd=c.paid.reduce((s,i)=>s+usdNet(i),0); basis="Spend to date (CPL — included)";
-    } else if(c.paidLevel<=2){
-      usd=roasPaid.reduce((s,i)=>s+usdNet(i),0); basis="ROAS spend to date";
-    } else if(STATE.dropped.has(c.name)){
-      // Dropped: no longer growing — take YTD paid ROAS spend as-is (not annualised)
-      const yr=STATE.today.getFullYear();
-      const ytd=roasPaid.filter(i=>i.invDate && i.invDate.getFullYear()===yr);
-      usd=(ytd.length?ytd:roasPaid).reduce((s,i)=>s+usdNet(i),0); basis="Dropped · YTD spend";
-    } else {
-      latest=roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
-      usd=(latest?usdNet(latest):0)*12; basis="Latest paid × 12";
-    }
-    rowsWork.push({name:c.name, level:c.paidLevel, basis, usd, latest, dropped:STATE.dropped.has(c.name),
-      canDrop:c.paidLevel>2,
-      vatTouched: (c.paidLevel?roasPaid:c.paid).some(i=>i.vatInc)});
+    const roasPaid=c.paid.filter(i=>i.mile);
+    const dropped=STATE.dropped.has(c.name);
+    let usd, basis, latest=null, refunded=(c.paidLevel?roasPaid:c.paid).some(i=>i.refundUsd||i.refundAed);
+    if(!c.paidLevel){ usd=c.paid.reduce((s,i)=>s+usdNet(i),0); basis="Spend to date (CPL — included)"; }
+    else if(c.paidLevel<=2){ usd=roasPaid.reduce((s,i)=>s+usdNet(i),0); basis="ROAS spend to date"; }
+    else if(dropped){ const yr=STATE.today.getFullYear();
+      const ytd=roasPaid.filter(i=>i.invDate&&i.invDate.getFullYear()===yr);
+      usd=(ytd.length?ytd:roasPaid).reduce((s,i)=>s+usdNet(i),0); basis="Dropped · YTD spend"; }
+    else { latest=roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
+      usd=(latest?usdNet(latest):0)*12; basis="Latest paid × 12"; }
+    rowsWork.push({name:c.name, level:c.paidLevel, basis, usd, latest, dropped, canDrop:c.paidLevel>2,
+      vatTouched:(c.paidLevel?roasPaid:c.paid).some(i=>i.vatInc), refunded});
   }
-  const arpa = rowsWork.length ? rowsWork.reduce((s,r)=>s+r.usd,0)/rowsWork.length : 0;
+  const arpa=rowsWork.length? rowsWork.reduce((s,r)=>s+r.usd,0)/rowsWork.length : 0;
   return {arpa, n:rowsWork.length, excluded, rows:rowsWork.sort((a,b)=>b.usd-a.usd)};
 }
 
-/* ---------- monthly series ---------- */
-function monthKeysFrom(startISO, endDate){
-  const s=new Date(startISO); const keys=[];
-  let y=s.getFullYear(), m=s.getMonth();
-  const ey=endDate.getFullYear(), em=endDate.getMonth();
-  while(y<ey || (y===ey&&m<=em)){ keys.push(y+"-"+String(m+1).padStart(2,"0")); m++; if(m>11){m=0;y++;} }
-  return keys;
-}
-function revenueForMonth(rows,key){ return rows.filter(r=>r.isPaid && F.ym(r.payDate)===key).reduce((s,r)=>s+r.total,0); }
-
-function newBrandAcquisitions(clients){
-  const out=[];
-  for(const c of clients){ if(c.isNew && c.firstPaid){ out.push({name:c.name, month:F.ym(c.firstPaid.invDate), date:c.firstPaid.invDate}); } }
-  return out;
-}
-
-/* ===================== RENDER ===================== */
+function monthKeysFrom(startISO,endDate){ const s=new Date(startISO), keys=[]; let y=s.getFullYear(),m=s.getMonth();
+  const ey=endDate.getFullYear(),em=endDate.getMonth();
+  while(y<ey||(y===ey&&m<=em)){ keys.push(y+"-"+String(m+1).padStart(2,"0")); m++; if(m>11){m=0;y++;} } return keys; }
+function revenueForMonth(rows,key){ return rows.filter(r=>r.isPaid&&F.ym(r.payDate)===key).reduce((s,r)=>s+r.total,0); }
+function newBrandAcquisitions(clients){ const out=[];
+  for(const c of clients) if(c.isNew&&c.firstPaid) out.push({name:c.name,month:F.ym(c.firstPaid.invDate),date:c.firstPaid.invDate}); return out; }
 let CACHE={};
+function filteredRows(){ const q=STATE.query; if(!q)return STATE.rows; const ql=q.toLowerCase();
+  return STATE.rows.filter(r=> r.brand.toLowerCase().includes(ql)||r.client.toLowerCase().includes(ql)||r.invoice.toLowerCase().startsWith(ql)); }
 
-function filteredRows(){
-  const q=STATE.query;
-  if(!q) return STATE.rows;
-  const ql=q.toLowerCase();
-  return STATE.rows.filter(r=> r.brand.toLowerCase().includes(ql) || r.client.toLowerCase().includes(ql) || r.invoice.toLowerCase().startsWith(ql));
-}
+const PAGE={overview:["Overview & ARPA",""],build:["Brand Build","Push active brands toward the $24K annualised threshold"],
+  growth:["Growth","Revenue and new-brand acquisition over time"],velocity:["ROAS Velocity","Milestone progression and drop analysis"],
+  ledger:["Client Ledger","Every client, every invoice"]};
 
 function render(){
-  const rows=filteredRows();
-  const clients=byClient(rows);
-  const today=STATE.today;
-  const selMonth=STATE.month;
-  const isAll = selMonth==="ALL";
-  const yearSel = /^Y(\d{4})$/.test(selMonth) ? +selMonth.slice(1) : null;
-  const prevMonth = (isAll||yearSel) ? null :
-    (()=>{ const [y,m]=selMonth.split("-").map(Number); const d=new Date(y,m-2,1); return F.ym(d); })();
-  const inSel = d => { if(!d) return false;
-    if(isAll) return true;
-    if(yearSel) return d.getFullYear()===yearSel;
-    return F.ym(d)===selMonth; };
-  const inPrev = d => { if(!d) return false;
-    if(isAll) return false;
-    if(yearSel) return d.getFullYear()===yearSel-1;
-    return F.ym(d)===prevMonth; };
-  const selLabel = isAll ? "Overall" : yearSel ? String(yearSel) : F.ymLabel(selMonth);
-  const prevLabel = isAll ? "" : yearSel ? String(yearSel-1) : F.ymLabel(prevMonth);
-
-  const periodEnd = isAll ? today
-    : yearSel ? new Date(yearSel,11,31)
-    : (()=>{ const [y,m]=selMonth.split("-").map(Number); return new Date(y,m,0); })();
+  const rows=filteredRows(), clients=byClient(rows), today=STATE.today, selMonth=STATE.month;
+  const isAll=selMonth==="ALL", yearSel=/^Y(\d{4})$/.test(selMonth)?+selMonth.slice(1):null;
+  const prevMonth=(isAll||yearSel)?null:(()=>{const[y,m]=selMonth.split("-").map(Number);return F.ym(new Date(y,m-2,1));})();
+  const inSel=d=>{ if(!d)return false; if(isAll)return true; if(yearSel)return d.getFullYear()===yearSel; return F.ym(d)===selMonth; };
+  const inPrev=d=>{ if(!d)return false; if(isAll)return false; if(yearSel)return d.getFullYear()===yearSel-1; return F.ym(d)===prevMonth; };
+  const selLabel=isAll?"Overall":yearSel?String(yearSel):F.ymLabel(selMonth);
+  const prevLabel=isAll?"":yearSel?String(yearSel-1):F.ymLabel(prevMonth);
+  const periodEnd=isAll?today:yearSel?new Date(yearSel,11,31):(()=>{const[y,m]=selMonth.split("-").map(Number);return new Date(y,m,0);})();
 
   document.getElementById("vatLbl").textContent=(CONFIG.VAT_RATE*100).toFixed(0);
   document.getElementById("asOf").textContent="Sheet date: "+F.date(today);
+  document.getElementById("bbTargetLbl").textContent=(CONFIG.ARPA_TARGET/1000);
+  document.getElementById("bbTargetLbl2").textContent=(CONFIG.ARPA_TARGET/1000);
 
-  const cashSel = rows.filter(r=>r.isPaid && inSel(r.payDate));
-  const cashPrev= rows.filter(r=>r.isPaid && inPrev(r.payDate));
-  const rev=cashSel.reduce((s,r)=>s+r.total,0);
-  const revPrev=cashPrev.reduce((s,r)=>s+r.total,0);
-
-  const billSel = rows.filter(r=>inSel(r.invDate));
-  const billPrev= rows.filter(r=>inPrev(r.invDate));
-  const sum = a => a.reduce((s,r)=>s+r.total,0);
-  const chip = (cur,prev) => { if(isAll||!prev) return null;
-    if(!cur) return `<span class="chip">none in ${selLabel}</span>`;
-    const p=(cur-prev)/prev*100;
-    return `<span class="chip ${p>=0?'up':'down'}">${F.pct(p)}</span> vs ${prevLabel}`; };
-
-  const invoicedRows=billSel.filter(r=>!r.isCancelled), totalInvoiced=sum(invoicedRows);
-  const invoicedPrev=sum(billPrev.filter(r=>!r.isCancelled));
-  const paidRows=billSel.filter(r=>r.isPaid), totalPaid=sum(paidRows);
-  const paidPrev=sum(billPrev.filter(r=>r.isPaid));
-  const unpaidRows=billSel.filter(r=>!r.isPaid&&!r.isCancelled), totalUnpaid=sum(unpaidRows);
-  const unpaidPrev=sum(billPrev.filter(r=>!r.isPaid&&!r.isCancelled));
-  const cancRows=billSel.filter(r=>r.isCancelled), totalCanc=sum(cancRows);
-  const cancPrev=sum(billPrev.filter(r=>r.isCancelled));
+  const cashSel=rows.filter(r=>r.isPaid&&inSel(r.payDate)), cashPrev=rows.filter(r=>r.isPaid&&inPrev(r.payDate));
+  const rev=cashSel.reduce((s,r)=>s+r.total,0), revPrev=cashPrev.reduce((s,r)=>s+r.total,0);
+  const billSel=rows.filter(r=>inSel(r.invDate)), billPrev=rows.filter(r=>inPrev(r.invDate));
+  const sum=a=>a.reduce((s,r)=>s+r.total,0);
+  const chip=(cur,prev)=>{ if(isAll||!prev)return null; if(!cur)return `<span class="chip">none in ${selLabel}</span>`;
+    const p=(cur-prev)/prev*100; return `<span class="chip ${p>=0?'up':'down'}">${F.pct(p)}</span> vs ${prevLabel}`; };
+  const invoicedRows=billSel.filter(r=>!r.isCancelled), totalInvoiced=sum(invoicedRows), invoicedPrev=sum(billPrev.filter(r=>!r.isCancelled));
+  const paidRows=billSel.filter(r=>r.isPaid), totalPaid=sum(paidRows), paidPrev=sum(billPrev.filter(r=>r.isPaid));
+  const unpaidRows=billSel.filter(r=>!r.isPaid&&!r.isCancelled), totalUnpaid=sum(unpaidRows), unpaidPrev=sum(billPrev.filter(r=>!r.isPaid&&!r.isCancelled));
+  const cancRows=billSel.filter(r=>r.isCancelled), totalCanc=sum(cancRows), cancPrev=sum(billPrev.filter(r=>r.isCancelled));
   const overdueCount=unpaidRows.filter(r=>r.pastDue>0).length;
-  const collectionRate= totalInvoiced? totalPaid/totalInvoiced*100 : 0;
-
-  const acq=newBrandAcquisitions(clients);
-  const acqSel=acq.filter(a=>inSel(a.date)).length;
-  const acqPrevN=acq.filter(a=>inPrev(a.date)).length;
+  const collectionRate=totalInvoiced?totalPaid/totalInvoiced*100:0;
+  const acq=newBrandAcquisitions(clients), acqSel=acq.filter(a=>inSel(a.date)).length, acqPrevN=acq.filter(a=>inPrev(a.date)).length;
   const acqSince=acq.filter(a=>a.date>=new Date(CONFIG.ACQUISITION_START));
-
-  const asAtRows=rows.filter(r=>!r.invDate || r.invDate<=periodEnd);
+  const asAtRows=rows.filter(r=>!r.invDate||r.invDate<=periodEnd);
   const A=computeARPA(byClient(asAtRows));
-  const prevEnd = isAll ? null : yearSel ? new Date(yearSel-1,11,31)
-    : (()=>{ const [y,m]=prevMonth.split("-").map(Number); return new Date(y,m,0); })();
-  const APrev = prevEnd ? computeARPA(byClient(rows.filter(r=>!r.invDate || r.invDate<=prevEnd))) : null;
-
-  const convWon=clients.filter(c=>c.isNew && c.hasPaid && c.firstPaid
-    && c.firstPaid.invDate>=new Date(CONFIG.CONVERSION_START) && c.firstPaid.invDate<=periodEnd).length;
-  const leads=STATE.leads||75;
-  const convPct= leads? convWon/leads*100 : 0;
+  const prevEnd=isAll?null:yearSel?new Date(yearSel-1,11,31):(()=>{const[y,m]=prevMonth.split("-").map(Number);return new Date(y,m,0);})();
+  const APrev=prevEnd?computeARPA(byClient(rows.filter(r=>!r.invDate||r.invDate<=prevEnd))):null;
+  const convWon=clients.filter(c=>c.isNew&&c.hasPaid&&c.firstPaid&&c.firstPaid.invDate>=new Date(CONFIG.CONVERSION_START)&&c.firstPaid.invDate<=periodEnd).length;
+  const leads=STATE.leads||75, convPct=leads?convWon/leads*100:0;
 
   const tiles=[
-    {cls:"mint", h:"Revenue collected", cur:"AED", key:"rev", v:rev,
-      sub: isAll ? `${F.int(cashSel.length)} receipts all-time`
-        : `${chip(rev,revPrev)||`<span class="chip">no ${prevLabel} base</span>`} · ${F.aed(revPrev)}`},
-    {cls:"sky", h:"Total invoiced", cur:"AED", key:"inv", v:totalInvoiced,
-      sub: !invoicedRows.length ? `nothing billed in ${selLabel}`
-        : isAll ? `${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled`
-        : `${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled ${chip(totalInvoiced,invoicedPrev)||""}`},
-    {cls:"lilac", h:"Total paid", cur:"AED", key:"paid", v:totalPaid,
-      sub: !invoicedRows.length ? `—` : `${F.int(paidRows.length)} settled ${chip(totalPaid,paidPrev)||""}`},
-    {cls:"rose", h:"Total unpaid", cur:"AED", key:"unpaid", v:totalUnpaid,
-      sub: !invoicedRows.length ? `—` : `${F.int(unpaidRows.length)} open · ${F.int(overdueCount)} overdue ${chip(totalUnpaid,unpaidPrev)||""}`},
-    {cls:"peach", h:"Total cancelled", cur:"AED", key:"canc", v:totalCanc,
-      sub: !billSel.length ? `—` : `${F.int(cancRows.length)} cancelled ${chip(totalCanc,cancPrev)||""}`},
-    {cls:"cream", h:"New brands won", cur:"", key:"nb", v:acqSel, int:true,
-      sub: isAll ? `${acqSince.length} since Oct '25`
-        : `${chip(acqSel,acqPrevN)||`<span class="chip">${acqPrevN} in ${prevLabel}</span>`} · ${acqSince.length} since Oct '25`},
-    {cls:"pink", h:"ARPA · annualised", cur:"$", key:"arpa", v:A.arpa,
+    {cls:"mint",h:"Revenue collected",cur:"AED",key:"rev",v:rev,
+      sub:isAll?`${F.int(cashSel.length)} receipts all-time`:`${chip(rev,revPrev)||`<span class="chip">no ${prevLabel} base</span>`} · ${F.aed(revPrev)}`},
+    {cls:"sky",h:"Total invoiced",cur:"AED",key:"inv",v:totalInvoiced,
+      sub:!invoicedRows.length?`nothing billed in ${selLabel}`:isAll?`${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled`:`${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled ${chip(totalInvoiced,invoicedPrev)||""}`},
+    {cls:"lilac",h:"Total paid",cur:"AED",key:"paid",v:totalPaid,sub:!invoicedRows.length?`—`:`${F.int(paidRows.length)} settled ${chip(totalPaid,paidPrev)||""}`},
+    {cls:"rose",h:"Total unpaid",cur:"AED",key:"unpaid",v:totalUnpaid,sub:!invoicedRows.length?`—`:`${F.int(unpaidRows.length)} open · ${F.int(overdueCount)} overdue ${chip(totalUnpaid,unpaidPrev)||""}`},
+    {cls:"cream",h:"Total cancelled",cur:"AED",key:"canc",v:totalCanc,sub:!billSel.length?`—`:`${F.int(cancRows.length)} cancelled ${chip(totalCanc,cancPrev)||""}`},
+    {cls:"lilac",h:"New brands won",cur:"",key:"nb",v:acqSel,int:true,
+      sub:isAll?`${acqSince.length} since Oct '25`:`${chip(acqSel,acqPrevN)||`<span class="chip">${acqPrevN} in ${prevLabel}</span>`} · ${acqSince.length} since Oct '25`},
+    {cls:"pink",h:"ARPA · annualised",cur:"$",key:"arpa",v:A.arpa,hero:true,
       sub:`${A.n} paid ROAS brands${APrev&&APrev.arpa?` ${chip(A.arpa,APrev.arpa)||""}`:""} · <span id="convInline">${convPct.toFixed(1)}% conv</span>`}
   ];
-  document.getElementById("periodNote").textContent=
-    isAll ? "All-time. Revenue is by payment date; invoiced, paid, unpaid and cancelled are by invoice date. ARPA in USD, net of VAT where marked."
-    : `${selLabel}. Revenue = cash collected in period (payment date). Invoiced / paid / unpaid / cancelled = billed in period (invoice date). ARPA as at ${F.date(periodEnd>today?today:periodEnd)}, USD net of VAT where marked.`;
-  const tilesEl=document.getElementById("tiles");
-  tilesEl.innerHTML=tiles.map(t=>`
-    <div class="tile ${t.cls}">
-      <div class="h">${t.h}</div>
+  document.getElementById("periodNote").textContent=isAll
+    ?"All-time. Revenue by payment date; invoiced/paid/unpaid/cancelled by invoice date. ARPA in USD, net of VAT and refunds."
+    :`${selLabel}. Revenue = cash collected (payment date). Invoiced/paid/unpaid/cancelled = billed in period (invoice date). ARPA as at ${F.date(periodEnd>today?today:periodEnd)}, USD net of VAT and refunds.`;
+  document.getElementById("tiles").innerHTML=tiles.map(t=>`
+    <div class="tile ${t.cls} ${t.hero?'hero':''}"><div class="h">${t.h}</div>
       <div class="v">${t.cur?`<span class="cur">${t.cur}</span>`:""}<span class="num" data-count="${t.v}" data-int="${t.int?1:0}" data-key="${t.key}">0</span></div>
-      <div class="s">${t.sub}</div>
-    </div>`).join("");
+      <div class="s">${t.sub}</div></div>`).join("");
   animateCounts();
-
   const convInline=document.getElementById("convInline");
   if(convInline){ convInline.innerHTML=`<input class="leads-input" id="leadsInput" type="number" min="0" value="${leads}"> leads → ${convWon} won (${convPct.toFixed(1)}%)`;
-    document.getElementById("leadsInput").addEventListener("input",e=>{ STATE.leads=parseInt(e.target.value)||0; render(); }); }
+    document.getElementById("leadsInput").addEventListener("input",e=>{STATE.leads=parseInt(e.target.value)||0;render();}); }
 
-  renderChart(rows, clients, today);
+  renderChart(rows,clients,today);
   renderDataChecks(rows);
   renderAcqLog(acq);
-  renderAging(rows, today);
+  renderAging(rows,today);
   renderARPAWork(A);
-  renderVelocity(clients, today);
+  renderVelocity(clients,today);
   renderLedger(clients);
+  renderBrandBuild(A, clients);
   document.getElementById("footnote").innerHTML=
-    `Grouping by Brand Name · status read only from Invoice Status · milestones only from ROAS- Milestone · ARPA from the $ Amount column (paid rows only, net of ${(CONFIG.VAT_RATE*100).toFixed(0)}% VAT where marked Included) · "today" = ${F.date(today)} from the sheet.`;
+    `Grouping by Brand Name · status only from Invoice Status · milestones only from ROAS- Milestone · ARPA from $ Amount (paid only, net of ${(CONFIG.VAT_RATE*100).toFixed(0)}% VAT where marked, less refunds) · "today" = ${F.date(today)} from the sheet.`;
 }
 
 function animateCounts(){
   document.querySelectorAll("[data-count]").forEach(el=>{
-    const target=parseFloat(el.dataset.count)||0; const key=el.dataset.key;
-    const from=CACHE[key]!==undefined?CACHE[key]:0; CACHE[key]=target;
-    const dur=650, t0=performance.now();
-    const step=now=>{ const p=Math.min(1,(now-t0)/dur); const e=1-Math.pow(1-p,3); const val=from+(target-from)*e;
-      el.textContent=Math.round(val).toLocaleString("en-US");
-      if(p<1) requestAnimationFrame(step); };
+    const target=parseFloat(el.dataset.count)||0, key=el.dataset.key, from=CACHE[key]!==undefined?CACHE[key]:0; CACHE[key]=target;
+    const dur=600,t0=performance.now();
+    const step=now=>{ const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3), val=from+(target-from)*e;
+      el.textContent=Math.round(val).toLocaleString("en-US"); if(p<1)requestAnimationFrame(step); };
     requestAnimationFrame(step);
   });
 }
-
-function renderChart(rows, clients, today){
-  const svg=document.getElementById("chart");
-  const keys=monthKeysFrom(CONFIG.ACQUISITION_START, today);
-  const rev=keys.map(k=>revenueForMonth(rows,k));
-  const acq=newBrandAcquisitions(clients);
-  const newB=keys.map(k=>acq.filter(a=>a.month===k).length);
-  const W=760,H=270, padL=54,padR=30,padT=18,padB=34;
-  const iw=W-padL-padR, ih=H-padT-padB;
-  const maxRev=Math.max(...rev,1), maxN=Math.max(...newB,1);
-  const bw=iw/keys.length*0.56;
-  const x=i=> padL + iw*(i+0.5)/keys.length;
-  const yN=v=> padT+ih - (v/maxN)*ih;
+function renderChart(rows,clients,today){
+  const svg=document.getElementById("chart"), keys=monthKeysFrom(CONFIG.ACQUISITION_START,today);
+  const rev=keys.map(k=>revenueForMonth(rows,k)), acq=newBrandAcquisitions(clients), newB=keys.map(k=>acq.filter(a=>a.month===k).length);
+  const W=760,H=270,padL=54,padR=30,padT=18,padB=34, iw=W-padL-padR, ih=H-padT-padB;
+  const maxRev=Math.max(...rev,1), maxN=Math.max(...newB,1), bw=iw/keys.length*0.56;
+  const x=i=>padL+iw*(i+0.5)/keys.length, yN=v=>padT+ih-(v/maxN)*ih;
   let g="";
-  for(let t=0;t<=4;t++){ const gy=padT+ih*t/4; const val=maxRev*(1-t/4);
+  for(let t=0;t<=4;t++){ const gy=padT+ih*t/4, val=maxRev*(1-t/4);
     g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--grid)"/>`;
     g+=`<text x="${padL-8}" y="${gy+3}" text-anchor="end">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`; }
   const lastIdx=keys.length-1;
-  rev.forEach((v,i)=>{ const h=Math.max(0,(v/maxRev)*ih); const bx=x(i)-bw/2; const by=padT+ih-h;
-    const partial = i===lastIdx;
-    const sel = keys[i]===STATE.month;
-    g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4"
-        fill="${partial?'url(#gp)':'url(#gb)'}" ${sel?'stroke="var(--seldot)" stroke-width="1.5"':''}
-        data-k="${keys[i]}" data-rev="${v}" data-nb="${newB[i]}" data-partial="${partial?1:0}"/>`; });
+  rev.forEach((v,i)=>{ const h=Math.max(0,(v/maxRev)*ih),bx=x(i)-bw/2,by=padT+ih-h, partial=i===lastIdx, sel=keys[i]===STATE.month;
+    g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4" fill="${partial?'url(#gp)':'url(#gb)'}" ${sel?'stroke="var(--seldot)" stroke-width="1.5"':''} data-k="${keys[i]}" data-rev="${v}" data-nb="${newB[i]}" data-partial="${partial?1:0}"/>`; });
   const skip=keys.length>10?2:1;
-  keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle"
-    ${k===STATE.month?'fill="var(--seldot)"':''}>${F.ymLabel(k).split(" ")[0]}</text>`; });
+  keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" ${k===STATE.month?'fill="var(--seldot)"':''}>${F.ymLabel(k).split(" ")[0]}</text>`; });
   g+=`<text x="${x(lastIdx)}" y="${padT-4}" text-anchor="middle" font-size="8.5">to date</text>`;
   let path=""; newB.forEach((v,i)=>{ if(i<lastIdx) path+=(i?"L":"M")+x(i)+" "+yN(v)+" "; });
   g+=`<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linejoin="round"/>`;
-  if(lastIdx>0) g+=`<path d="M${x(lastIdx-1)} ${yN(newB[lastIdx-1])} L${x(lastIdx)} ${yN(newB[lastIdx])}"
-    fill="none" stroke="var(--green)" stroke-width="2.2" stroke-dasharray="4 3" opacity=".65"/>`;
-  newB.forEach((v,i)=>{ g+=`<circle cx="${x(i)}" cy="${yN(v)}" r="3.6" fill="var(--panel-solid)" stroke="var(--green)" stroke-width="2"
-     class="bar" data-k="${keys[i]}" data-rev="${rev[i]}" data-nb="${v}" data-partial="${i===lastIdx?1:0}"/>`; });
-  svg.innerHTML=`<defs><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#8b84ff"/><stop offset="100%" stop-color="#5b52f0"/></linearGradient>
-      <pattern id="gp" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-        <rect width="6" height="6" fill="var(--hatchbg)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--hatchfg)" stroke-width="3"/>
-      </pattern></defs>`+g;
+  if(lastIdx>0) g+=`<path d="M${x(lastIdx-1)} ${yN(newB[lastIdx-1])} L${x(lastIdx)} ${yN(newB[lastIdx])}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-dasharray="4 3" opacity=".65"/>`;
+  newB.forEach((v,i)=>{ g+=`<circle cx="${x(i)}" cy="${yN(v)}" r="3.6" fill="var(--panel-solid)" stroke="var(--green)" stroke-width="2" class="bar" data-k="${keys[i]}" data-rev="${rev[i]}" data-nb="${v}" data-partial="${i===lastIdx?1:0}"/>`; });
+  svg.innerHTML=`<defs><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--indigo)"/><stop offset="100%" stop-color="var(--indigo-deep)"/></linearGradient>
+    <pattern id="gp" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="var(--hatchbg)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--hatchfg)" stroke-width="3"/></pattern></defs>`+g;
   const tt=document.getElementById("tooltip");
-  svg.querySelectorAll(".bar").forEach(el=>{
-    el.addEventListener("mousemove",e=>{ tt.style.opacity=1;
+  svg.querySelectorAll(".bar").forEach(el=>{ el.addEventListener("mousemove",e=>{ tt.style.opacity=1;
       tt.innerHTML=`<b>${F.ymLabel(el.dataset.k)}</b>${el.dataset.partial==="1"?" — month to date":""}<br>${F.aed(+el.dataset.rev)} collected<br>${el.dataset.nb} new brand${el.dataset.nb==1?"":"s"}`;
       tt.style.left=(e.clientX+14)+"px"; tt.style.top=(e.clientY-10)+"px"; });
-    el.addEventListener("mouseleave",()=>tt.style.opacity=0);
-  });
+    el.addEventListener("mouseleave",()=>tt.style.opacity=0); });
 }
 
 function renderDataChecks(rows){
-  const el=document.getElementById("dataChecks"); const issues=[];
+  const el=document.getElementById("dataChecks"), issues=[];
   const byPrefix=new Map();
-  rows.forEach(r=>{ const p=(r.invoice.split("-")[0]||"").trim().toUpperCase(); if(!p) return;
-    if(!byPrefix.has(p)) byPrefix.set(p,new Set()); byPrefix.get(p).add(r.brand); });
-  const nearMatch=(a,b)=>{ a=a.toLowerCase(); b=b.toLowerCase(); if(Math.abs(a.length-b.length)>1) return false;
-    let d=0; const L=Math.max(a.length,b.length);
-    for(let i=0;i<L;i++) if(a[i]!==b[i]) d++;
-    return d<=1 || (a.length===b.length && d===2); };
-  for(const [p,set] of byPrefix){ const names=[...set];
-    for(let i=0;i<names.length;i++) for(let j=i+1;j<names.length;j++)
-      if(nearMatch(names[i],names[j])) issues.push(`Possible typo: <b>${names[i]}</b> and <b>${names[j]}</b> both appear under invoice prefix ${p} — currently counted as two brands.`); }
-  const blanks=rows.filter(r=>!r.brandFromSheet && r.invoice).map(r=>r.invoice);
-  if(blanks.length) issues.push(`${blanks.length} row${blanks.length===1?"":"s"} have no Brand Name — falling back to the client name (${blanks.slice(0,6).join(", ")}${blanks.length>6?"…":""}).`);
-  const noUsd=rows.filter(r=>r.isPaid && r.mile && !r.usd).length;
+  rows.forEach(r=>{ const p=(r.invoice.split("-")[0]||"").trim().toUpperCase(); if(!p)return; if(!byPrefix.has(p))byPrefix.set(p,new Set()); byPrefix.get(p).add(r.brand); });
+  const nearMatch=(a,b)=>{ a=a.toLowerCase();b=b.toLowerCase(); if(Math.abs(a.length-b.length)>1)return false; let d=0,L=Math.max(a.length,b.length); for(let i=0;i<L;i++)if(a[i]!==b[i])d++; return d<=1||(a.length===b.length&&d===2); };
+  for(const [p,set] of byPrefix){ const n=[...set]; for(let i=0;i<n.length;i++)for(let j=i+1;j<n.length;j++) if(nearMatch(n[i],n[j])) issues.push(`Possible typo: <b>${n[i]}</b> and <b>${n[j]}</b> both under invoice prefix ${p} — counted as two brands.`); }
+  const blanks=rows.filter(r=>!r.brandFromSheet&&r.invoice).map(r=>r.invoice);
+  if(blanks.length) issues.push(`${blanks.length} row${blanks.length===1?"":"s"} have no Brand Name — using the client name (${blanks.slice(0,6).join(", ")}${blanks.length>6?"…":""}).`);
+  const noUsd=rows.filter(r=>r.isPaid&&r.mile&&!r.usd).length;
   if(noUsd) issues.push(`${noUsd} paid ROAS row${noUsd===1?"":"s"} have no $ Amount — ARPA fell back to AED ÷ ${CONFIG.AED_PER_USD}.`);
-  el.innerHTML = issues.length
-    ? `<div class="checks"><b>Data checks</b><ul>${issues.map(i=>`<li>${i}</li>`).join("")}</ul></div>` : "";
+  el.innerHTML=issues.length?`<div class="checks"><b>Data checks</b><ul>${issues.map(i=>`<li>${i}</li>`).join("")}</ul></div>`:"";
 }
 
 function renderAcqLog(acq){
-  const el=document.getElementById("acqlog");
-  const groups={}; acq.forEach(a=>{ (groups[a.month]=groups[a.month]||[]).push(a.name); });
+  const el=document.getElementById("acqlog"), groups={};
+  acq.forEach(a=>{(groups[a.month]=groups[a.month]||[]).push(a.name);});
   const months=Object.keys(groups).sort();
   if(!months.length){ el.innerHTML=`<p class="hint">No acquired brands in range.</p>`; return; }
-  let html="";
-  months.forEach(m=>{ const names=groups[m];
-    html+=`<div class="acqmonth"><div class="mh"><span class="mn">${F.ymLabel(m)}</span><span class="badge">${names.length}</span></div>
-      <div class="brands">${names.map(n=>`<span class="bpill">${n}</span>`).join("")}</div></div>`; });
+  let html=""; months.forEach(m=>{ const names=groups[m];
+    html+=`<div class="acqmonth"><div class="mh"><span class="mn">${F.ymLabel(m)}</span><span class="badge">${names.length}</span></div><div class="brands">${names.map(n=>`<span class="bpill">${n}</span>`).join("")}</div></div>`; });
   html+=`<div class="acqtotal"><span>Total acquired</span><span class="num">${acq.length}</span></div>`;
   el.innerHTML=html;
 }
 
-function renderAging(rows, today){
-  const open=rows.filter(r=>!r.isPaid && !r.isCancelled)
-    .sort((a,b)=> (b.pastDue||0)-(a.pastDue||0));            // most overdue first
-  const totalOpen=open.reduce((s,r)=>s+r.total,0);
-  const overdue=open.filter(r=>r.pastDue>0);
-  const overdueAmt=overdue.reduce((s,r)=>s+r.total,0);
+function renderAging(rows,today){
+  const open=rows.filter(r=>!r.isPaid&&!r.isCancelled).sort((a,b)=>(b.pastDue||0)-(a.pastDue||0));
   const el=document.getElementById("aging");
   if(!open.length){ el.innerHTML=`<p class="hint">Nothing pending — every invoiced amount in this period is settled or cancelled.</p>`; return; }
+  const totalOpen=open.reduce((s,r)=>s+r.total,0), overdue=open.filter(r=>r.pastDue>0), overdueAmt=overdue.reduce((s,r)=>s+r.total,0);
   const head=`<div class="aging-head">
-      <div><div class="al">Pending payment</div><div class="av"><span class="cur">AED</span> <span class="num">${Math.round(totalOpen).toLocaleString("en-US")}</span></div>
-        <div class="ac">${open.length} open invoice${open.length===1?"":"s"}</div></div>
-      <div style="text-align:right"><div class="al">of which overdue</div><div class="av" style="color:var(--red)"><span class="cur">AED</span> <span class="num">${Math.round(overdueAmt).toLocaleString("en-US")}</span></div>
-        <div class="ac">${overdue.length} past due</div></div>
-    </div>`;
-  const ageTag=d=>{
-    if(d<=0) return `<span class="pill grey">Not due</span>`;
-    if(d<=30) return `<span class="pill amber">${d}d</span>`;
-    if(d<=60) return `<span class="pill amber">${d}d</span>`;
-    return `<span class="pill red">${d}d</span>`;
-  };
-  const tbl=`<div style="overflow-x:auto;margin-top:14px"><table class="agetable">
-    <thead><tr><th>Invoice</th><th>Brand</th><th>Status</th><th style="text-align:right">Amount</th><th>Due</th><th style="text-align:right">Overdue</th></tr></thead>
-    <tbody>${open.map(r=>`<tr>
-      <td class="mono">${r.invoice||"—"}</td>
-      <td>${r.brand||r.client}</td>
-      <td><span class="pill grey">${r.status||"Open"}</span></td>
-      <td style="text-align:right" class="mono">${F.aed(r.total)}</td>
-      <td class="mono">${F.date(r.due)}</td>
-      <td style="text-align:right">${ageTag(r.pastDue||0)}</td>
-    </tr>`).join("")}</tbody></table></div>`;
+    <div><div class="al">Pending payment</div><div class="av"><span class="cur">AED</span> <span class="num">${Math.round(totalOpen).toLocaleString("en-US")}</span></div><div class="ac">${open.length} open invoice${open.length===1?"":"s"}</div></div>
+    <div style="text-align:right"><div class="al">of which overdue</div><div class="av" style="color:var(--red)"><span class="cur">AED</span> <span class="num">${Math.round(overdueAmt).toLocaleString("en-US")}</span></div><div class="ac">${overdue.length} past due</div></div></div>`;
+  const tag=d=>d<=0?`<span class="pill grey">Not due</span>`:d<=60?`<span class="pill amber">${d}d</span>`:`<span class="pill red">${d}d</span>`;
+  const tbl=`<div style="overflow-x:auto;margin-top:14px"><table class="agetable"><thead><tr><th>Invoice</th><th>Brand</th><th>Status</th><th style="text-align:right">Amount</th><th>Due</th><th style="text-align:right">Overdue</th></tr></thead>
+    <tbody>${open.map(r=>`<tr><td class="mono">${r.invoice||"—"}</td><td>${r.brand||r.client}</td><td><span class="pill grey">${r.status||"Open"}</span></td><td style="text-align:right" class="mono">${F.aed(r.total)}</td><td class="mono">${F.date(r.due)}</td><td style="text-align:right">${tag(r.pastDue||0)}</td></tr>`).join("")}</tbody></table></div>`;
   el.innerHTML=head+tbl;
 }
 
-function moonPhases(level){
-  let s='<span class="phases">';
-  for(let i=1;i<=5;i++) s+=`<span class="ph ${level&&i<=level?'on':'off'}"></span>`;
-  s+=`</span><span class="mlabel">${level?("M"+level):"—"}</span>`;
-  return s;
-}
+function moonPhases(level){ let s='<span class="phases">'; for(let i=1;i<=5;i++)s+=`<span class="ph ${level&&i<=level?'on':'off'}"></span>`; s+=`</span><span class="mlabel">${level?("M"+level):"—"}</span>`; return s; }
 
 function renderARPAWork(A){
   const el=document.getElementById("arpaWork");
   if(!A.rows.length){ el.innerHTML=`<p class="hint">No qualifying paid ROAS clients.</p>`; return; }
-  el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Net value ($)</th><th style="text-align:right">ARPA ($)</th><th>Status</th></tr></thead>
+  el.innerHTML=`<table><thead><tr><th>Brand</th><th>ROAS</th><th>Basis</th><th style="text-align:right">Refund</th><th style="text-align:right">Net value ($)</th><th style="text-align:right">ARPA ($)</th><th>Status</th></tr></thead>
     <tbody>${A.rows.map(r=>{
       const base=r.basis.startsWith("Latest")&&r.latest?usdNet(r.latest):r.usd;
-      const ctrl = r.canDrop
-        ? `<button class="dropbtn ${r.dropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.dropped?'Dropped ✓':'Mark dropped'}</button>`
-        : `<span class="hint">—</span>`;
+      const ctrl=r.canDrop?`<button class="dropbtn ${r.dropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.dropped?'Dropped ✓':'Mark dropped'}</button>`:`<span class="hint">—</span>`;
       return `<tr class="${r.dropped?'droppedrow':''}"><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">CPL</span>'}</td>
       <td class="hint" style="letter-spacing:0;text-transform:none">${r.basis}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}${r.vatTouched?' · VAT netted':''}</td>
+      <td style="text-align:right" class="mono">${r.refunded?'<span style="color:var(--red)">✓ netted</span>':'—'}</td>
       <td style="text-align:right" class="mono">${F.usd(base)}</td>
       <td style="text-align:right" class="mono">${F.usd(r.usd)}</td><td>${ctrl}</td></tr>`;}).join("")}
-    <tr style="border-top:2px solid var(--line-strong)"><td colspan="4" style="text-align:right;color:var(--ink-soft)">Average ARPA</td>
-      <td style="text-align:right" class="mono">${F.usd(A.arpa)}</td></tr></tbody></table>
+    <tr style="border-top:2px solid var(--line-strong)"><td colspan="5" style="text-align:right;color:var(--ink-soft)">Average ARPA</td><td style="text-align:right" class="mono">${F.usd(A.arpa)}</td><td></td></tr></tbody></table>
     ${A.excluded?`<p class="hint" style="margin-top:10px">${A.excluded} paid client${A.excluded===1?"":"s"} excluded — no ROAS milestone and not on the approved list.</p>`:""}
-    <p class="hint" style="margin-top:8px">"Mark dropped" is available for brands past Milestone-2: it stops annualising their latest invoice and uses their year-to-date paid spend instead.</p>`;
-  el.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{
-    const k=b.dataset.brand; if(STATE.dropped.has(k)) STATE.dropped.delete(k); else STATE.dropped.add(k); render();
-  }));
+    <p class="hint" style="margin-top:8px">"Mark dropped" (M3+ only) stops annualising and uses year-to-date paid spend. M1/M2 brands can be dropped in Brand Build without changing ARPA.</p>`;
+  el.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.dropped.has(k)?STATE.dropped.delete(k):STATE.dropped.add(k); render(); }));
 }
-
-function renderVelocity(clients, today){
+function renderVelocity(clients,today){
   const rowsData=[];
   for(const c of clients){
-    const m1paid=c.paid.filter(i=>i.mile===1).sort((a,b)=> (a.payDate||a.invDate)-(b.payDate||b.invDate))[0];
-    if(!m1paid || !m1paid.payDate) continue;
-    // "Reached M2" = any PAID invoice at Milestone-2 OR HIGHER (progression past
-    // the rung counts even if no invoice is literally tagged M2 — e.g. a bundled
-    // "M2 & 3" invoice or a skipped rung).
+    const m1=c.paid.filter(i=>i.mile===1).sort((a,b)=>(a.payDate||a.invDate)-(b.payDate||b.invDate))[0];
+    if(!m1||!m1.payDate) continue;
     const beyondPaid=c.paid.filter(i=>i.mile>=2).sort((a,b)=>(a.payDate||0)-(b.payDate||0))[0];
     const m2onlyRows=c.invs.filter(i=>i.mile===2);
-    const m2cancelledOnly = !beyondPaid && m2onlyRows.length>0 && m2onlyRows.every(i=>i.isCancelled);
-    const days=Math.floor((today - m1paid.payDate)/86400000);
-    const passed30 = days>=30;
-    let m2label, result, pill;
-    if(beyondPaid){
-      const reachedLvl=Math.max(...c.paid.filter(i=>i.mile>=2).map(i=>i.mile));
-      let late="";
-      if(beyondPaid.payDate){ const gap=Math.floor((beyondPaid.payDate-m1paid.payDate)/86400000); if(gap>30) late=` (late, ${gap}d)`; }
-      m2label = reachedLvl>2 ? `Yes — reached M${reachedLvl}${late}` : `Yes${late}`;
-      result="Not dropped"; pill="green";
-    } else if(m2cancelledOnly){ m2label="No (M2 cancelled)"; }
-    else { m2label="No"; }
-    if(result!=="Not dropped"){ if(!passed30){ result="Pending"; pill="amber"; } else { result="Dropped"; pill="red"; } }
-    rowsData.push({name:c.name, m1:m1paid.payDate, passed30, days, m2label, result, pill});
+    const m2cancelledOnly=!beyondPaid&&m2onlyRows.length>0&&m2onlyRows.every(i=>i.isCancelled);
+    const days=Math.floor((today-m1.payDate)/86400000), passed30=days>=30;
+    const isDropped=STATE.dropped.has(c.name);
+    let m2label,result,pill;
+    if(beyondPaid){ const lvl=Math.max(...c.paid.filter(i=>i.mile>=2).map(i=>i.mile));
+      let late=""; if(beyondPaid.payDate){ const gap=Math.floor((beyondPaid.payDate-m1.payDate)/86400000); if(gap>30)late=` (late, ${gap}d)`; }
+      m2label=lvl>2?`Yes — reached M${lvl}${late}`:`Yes${late}`; result="Not dropped"; pill="green"; }
+    else if(m2cancelledOnly){ m2label="No (M2 cancelled)"; } else { m2label="No"; }
+    if(result!=="Not dropped"){ if(!passed30){result="Pending";pill="amber";} else {result="Dropped";pill="red";} }
+    if(isDropped){ result="Dropped (manual)"; pill="red"; }
+    rowsData.push({name:c.name, m1:m1.payDate, passed30, days, m2label, result, pill, canDrop:c.paidLevel>2||beyondPaid, isDropped});
   }
   rowsData.sort((a,b)=>a.m1-b.m1);
-  const activated=rowsData.length, dropped=rowsData.filter(r=>r.result==="Dropped").length;
-  const pctD= activated? Math.round(dropped/activated*100):0;
-  const nonRoasPaid=clients.filter(c=>c.hasPaid && !c.paidLevel).length;
-  document.getElementById("velSummary").innerHTML=`Dropped <span class="num">${dropped}</span> of <span class="num">${activated}</span> activated (${pctD}%). A brand is "activated" once its Milestone-1 invoice is paid.`
-    + (nonRoasPaid?` <span class="hint">${nonRoasPaid} paid brand${nonRoasPaid===1?"":"s"} not shown — no ROAS milestone (CPL or influencer campaigns).</span>`:"");
+  const activated=rowsData.length, dropped=rowsData.filter(r=>/Dropped/.test(r.result)).length, pctD=activated?Math.round(dropped/activated*100):0;
+  const nonRoasPaid=clients.filter(c=>c.hasPaid&&!c.paidLevel).length;
+  document.getElementById("velSummary").innerHTML=`Dropped <span class="num">${dropped}</span> of <span class="num">${activated}</span> activated (${pctD}%). A brand is "activated" once its Milestone-1 invoice is paid. Use "Mark dropped" to flag a churned brand — it leaves Brand Build, and for M3+ de-annualises ARPA.`
+    +(nonRoasPaid?` <span class="hint">${nonRoasPaid} paid brand${nonRoasPaid===1?"":"s"} not shown — no ROAS milestone.</span>`:"");
   const t=document.getElementById("velTable");
-  t.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>Reached M2+?</th><th>Result</th></tr></thead>
-    <tbody>${rowsData.map(r=>`<tr><td>${r.name}</td><td class="mono">${F.date(r.m1)}</td>
+  t.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>Reached M2+?</th><th>Result</th><th>Flag</th></tr></thead>
+    <tbody>${rowsData.map(r=>{
+      const drop=`<button class="dropbtn ${r.isDropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.isDropped?'Dropped ✓':'Mark dropped'}</button>`;
+      return `<tr class="${r.isDropped?'droppedrow':''}"><td>${r.name}</td><td class="mono">${F.date(r.m1)}</td>
       <td>${r.passed30?'<span class="pill green">Yes</span>':`<span class="pill grey">No (${r.days}d)</span>`}</td>
-      <td>${r.m2label}</td><td><span class="pill ${r.pill}">${r.result}</span></td></tr>`).join("")}</tbody>`;
+      <td>${r.m2label}</td><td><span class="pill ${r.pill}">${r.result}</span></td><td>${drop}</td></tr>`;}).join("")}</tbody>`;
   if(!rowsData.length) t.innerHTML=`<tbody><tr><td class="hint">No brands with a paid Milestone-1 yet.</td></tr></tbody>`;
+  t.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.dropped.has(k)?STATE.dropped.delete(k):STATE.dropped.add(k); render(); }));
 }
 
 function renderLedger(clients){
-  const el=document.getElementById("ledger");
-  let list=[...clients];
-  const f=STATE.ledgerFilter;
-  if(f==="paid") list=list.filter(c=>c.hasPaid);
-  else if(f==="outstanding") list=list.filter(c=>c.outstanding>0);
-  else if(f==="roas") list=list.filter(c=>c.level);
-  list.sort((a,b)=> b.totalPaid-a.totalPaid);
+  const el=document.getElementById("ledger"); let list=[...clients]; const f=STATE.ledgerFilter;
+  if(f==="paid")list=list.filter(c=>c.hasPaid); else if(f==="outstanding")list=list.filter(c=>c.outstanding>0); else if(f==="roas")list=list.filter(c=>c.level);
+  list.sort((a,b)=>b.totalPaid-a.totalPaid);
   document.getElementById("ledgerCount").textContent=`${list.length} clients`;
   el.innerHTML=list.map(c=>{
-    const statusPill = c.outstanding>0 ? `<span class="pill amber">AED ${Math.round(c.outstanding).toLocaleString("en-US")} open</span>`
-      : c.hasPaid ? `<span class="pill green">Settled</span>` : `<span class="pill grey">No payment</span>`;
+    const statusPill=c.outstanding>0?`<span class="pill amber">AED ${Math.round(c.outstanding).toLocaleString("en-US")} open</span>`:c.hasPaid?`<span class="pill green">Settled</span>`:`<span class="pill grey">No payment</span>`;
     const invRows=[...c.invs].sort((a,b)=>(b.invDate||0)-(a.invDate||0)).map(i=>{
-      const p= i.isPaid?"green": i.isCancelled?"red": "amber";
-      const st= i.isPaid?"Paid": i.isCancelled?"Cancelled": (i.status||"Open");
-      return `<tr><td class="mono">${i.invoice||"—"}</td><td>${i.desc?shortDesc(i.desc):"—"}</td>
-        <td>${i.mile?moonPhases(i.mile):'<span class="hint">N/A</span>'}</td>
-        <td class="mono">${F.date(i.invDate)}</td><td style="text-align:right" class="mono">${F.aed(i.total)}</td>
-        <td><span class="pill ${p}">${st}</span></td><td class="mono">${i.payDate?F.date(i.payDate):"—"}</td></tr>`;
+      const p=i.isPaid?"green":i.isCancelled?"red":"amber", st=i.isPaid?"Paid":i.isCancelled?"Cancelled":(i.status||"Open");
+      const ref=(i.refundUsd||i.refundAed)?` <span class="pill red" style="font-size:10px">refund</span>`:"";
+      return `<tr><td class="mono">${i.invoice||"—"}</td><td>${i.desc?shortDesc(i.desc):"—"}</td><td>${i.mile?moonPhases(i.mile):'<span class="hint">N/A</span>'}</td>
+        <td class="mono">${F.date(i.invDate)}</td><td style="text-align:right" class="mono">${F.aed(i.total)}${ref}</td><td><span class="pill ${p}">${st}</span></td><td class="mono">${i.payDate?F.date(i.payDate):"—"}</td></tr>`;
     }).join("");
     return `<details class="client"><summary>
         <span class="cname"><span class="caret">▸</span><span>${c.name}${c.entities.length&&c.entities[0]!==c.name?`<br><small class="hint" style="font-weight:400">${c.entities.join(" · ")}</small>`:""}</span></span>
-        <span class="cmeta">ROAS<br>${moonPhases(c.level)}</span>
-        <span class="cmeta">Paid<br><b>${F.aed(c.totalPaid)}</b></span>
-        <span class="cmeta">Invoices<br><b>${c.invs.length}</b></span>
-        <span>${statusPill}</span></summary>
-      <div class="cbody"><table><thead><tr><th>Invoice</th><th>Description</th><th>Milestone</th><th>Invoice date</th>
-        <th style="text-align:right">Amount</th><th>Status</th><th>Paid on</th></tr></thead><tbody>${invRows}</tbody></table></div>
-    </details>`;
+        <span class="cmeta">ROAS<br>${moonPhases(c.level)}</span><span class="cmeta">Paid<br><b>${F.aed(c.totalPaid)}</b></span><span class="cmeta">Invoices<br><b>${c.invs.length}</b></span><span>${statusPill}</span></summary>
+      <div class="cbody"><table><thead><tr><th>Invoice</th><th>Description</th><th>Milestone</th><th>Invoice date</th><th style="text-align:right">Amount</th><th>Status</th><th>Paid on</th></tr></thead><tbody>${invRows}</tbody></table></div></details>`;
   }).join("");
   if(!list.length) el.innerHTML=`<p class="hint">No clients match this filter.</p>`;
 }
 
-const tidy = s => String(s||"").replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g,"-").replace(/[\u00a0\u2007\u202f]/g," ").replace(/\s+/g," ").trim();
-const shortName = n => tidy(n).replace(/\s*(l\.?l\.?c\.?-?fz?|llc|fz llc|fze|trading company|company|general trading|- moontech|- mt)\b/gi,"").replace(/\s*-\s*/g," — ").replace(/\s+/g," ").trim() || tidy(n);
-const brandName = n => {
-  const t=tidy(n), tl=t.toLowerCase();
-  for(const frag in (CONFIG.BRAND_OVERRIDES||{})){ if(tl.includes(frag.toLowerCase())) return CONFIG.BRAND_OVERRIDES[frag]; }
-  let parts=t.split(/\s*-\s*/).map(s=>s.trim()).filter(Boolean).filter(p=>!/^(moontech|mt)$/i.test(p));
-  let b=parts.length>1?parts[parts.length-1]:(parts[0]||t);
-  b=b.replace(/[\s,]+(MT|Moontech)$/i,"").trim();
-  return parts.length>1 && b ? b : shortName(parts.join(" - ")||t);
-};
-const shortDesc = d => d.length>46 ? d.slice(0,44)+"…" : d;
+/* ---------- BRAND BUILD ---------- */
+let BB_FILTER=null;
+let BB_ASSUME=null;   // promoted-brand assumed ARPA ($); null = use live M3+ average
+let BB_PROMOTE=0;     // slider: how many brands promoted to M3
+let BB_CTX=null;      // {active, below, m1, m2, m3plusAvg}
 
-/* ===================== TABS / THEME / SKY ===================== */
-function setupTabs(){
-  document.getElementById("tabs").addEventListener("click",e=>{
-    const b=e.target.closest(".tab"); if(!b) return;
-    document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
-    document.querySelectorAll(".report").forEach(s=>s.classList.toggle("on", s.id==="r-"+b.dataset.r));
+function bbContext(A){
+  const T=CONFIG.ARPA_TARGET;
+  const active=A.rows.filter(r=>!r.dropped && r.level);
+  const below=active.filter(r=>r.usd<T);
+  const m3plus=active.filter(r=>r.level>=3);
+  const m3plusAvg=m3plus.length? m3plus.reduce((s,r)=>s+r.usd,0)/m3plus.length : T; // fallback: target
+  // promotable = sub-M3 below target, ordered by closeness to M3 (M2 first, then M1), then by current value desc
+  const promotable=below.filter(r=>r.level<3).sort((a,b)=> b.level-a.level || b.usd-a.usd);
+  return {T, active, below, m1:below.filter(r=>r.level===1), m2:below.filter(r=>r.level===2),
+    stalledM3:below.filter(r=>r.level>=3), m3plusAvg, promotable};
+}
+
+// average ARPA if the first `n` promotable brands are lifted to the assumed value
+function projectedARPA(ctx, n, assume){
+  const vals=ctx.active.map(r=>r.usd).slice();
+  // map promotable[i] -> its index in active, replace value with assume for first n
+  const promoteSet=new Set(ctx.promotable.slice(0,n).map(r=>r.name));
+  const arr=ctx.active.map(r=> promoteSet.has(r.name)? assume : r.usd);
+  return arr.length? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
+}
+
+function renderBrandBuild(A, clients){
+  const ctx=bbContext(A); BB_CTX=ctx; const T=ctx.T;
+  const assume = BB_ASSUME!=null ? BB_ASSUME : Math.round(ctx.m3plusAvg);
+  const atOrAbove=ctx.active.length-ctx.below.length;
+
+  // header tiles (clickable filters)
+  const stat=(id,accent,l,v,c,sel)=>`<div class="bbstat clickable ${sel?'sel':''}" data-f="${id}" style="--accent:var(--${accent})"><div class="l">${l}</div><div class="v">${v}</div><div class="c">${c}</div></div>`;
+  document.getElementById("bbHead").innerHTML=
+    stat('all','indigo','Active ROAS brands',F.int(ctx.active.length),`${atOrAbove} at/above $${T/1000}K · ${ctx.below.length} below`, BB_FILTER==='all'||BB_FILTER===null)
+   +stat('m1','orange','Move M1 &#8594; M3',F.int(ctx.m1.length),'two rungs to annualisation', BB_FILTER==='m1')
+   +stat('m2','green','Move M2 &#8594; M3',F.int(ctx.m2.length),'one rung — quickest wins', BB_FILTER==='m2')
+   +stat('m3','mauve','M3+ under target',F.int(ctx.stalledM3.length),'lift next invoice', BB_FILTER==='m3');
+  document.querySelectorAll("#bbHead .clickable").forEach(el=>el.addEventListener("click",()=>{ BB_FILTER=(BB_FILTER===el.dataset.f)?null:el.dataset.f; renderBrandBuild(A,clients); }));
+
+  document.getElementById("bbAssumeLbl").textContent="live M3+ average ("+F.usd(Math.round(ctx.m3plusAvg))+")";
+  const assumeIn=document.getElementById("bbAssume");
+  if(document.activeElement!==assumeIn) assumeIn.value=assume;
+  document.getElementById("bbAssumeHint").textContent = BB_ASSUME!=null? "custom · reset clears" : "= live M3+ average";
+  ["bbTargetLbl","bbTargetLbl2","bbTargetLbl3"].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=T/1000;});
+
+  // slider bounds
+  const maxN=ctx.promotable.length;
+  const range=document.getElementById("wfRange");
+  range.max=maxN; if(BB_PROMOTE>maxN)BB_PROMOTE=maxN; range.value=BB_PROMOTE;
+  document.getElementById("wfPool").textContent=`${maxN} promotable (M1/M2 below target)`;
+
+  drawWaterfall(ctx, assume);
+  wireBBControls(A, clients);
+
+  // ---- the per-brand list, with cumulative ARPA-impact in each playbook ----
+  let list=ctx.below.slice();
+  if(BB_FILTER==='m1')list=ctx.m1; else if(BB_FILTER==='m2')list=ctx.m2; else if(BB_FILTER==='m3')list=ctx.stalledM3;
+  list=list.sort((a,b)=>a.level-b.level || a.usd-b.usd);
+  const el=document.getElementById("bbList");
+  if(!ctx.active.length){ el.innerHTML=`<p class="hint">No active ROAS brands.</p>`; return; }
+  if(!list.length){ el.innerHTML=`<p class="hint">${ctx.below.length?'No brands in this group.':`Every active brand is at or above $${T/1000}K.`}</p>`; return; }
+  const curAvg=projectedARPA(ctx,0,assume);
+  el.innerHTML=list.map(r=>{
+    const gap=T-r.usd, pct=Math.min(100,r.usd/T*100), lvl=r.level;
+    let move, play;
+    if(lvl>=3){ const mn=r.usd/12, need=T/12;
+      move=`<span class="movetag m3">M${lvl} · lift invoice</span>`;
+      play=`Annualised at <b>${F.usd(mn)}</b>/mo. Raise the next invoice to <b>${F.usd(need)}</b>/mo (<span class="lift">${F.usd(need-mn)}/mo</span>) to clear $${T/1000}K.`;
+    } else {
+      // cumulative ARPA if THIS brand alone is promoted to M3
+      const arr=ctx.active.map(x=> x.name===r.name? assume : x.usd);
+      const withThis=arr.reduce((s,v)=>s+v,0)/arr.length;
+      const delta=withThis-curAvg;
+      const steps=3-lvl;
+      move=`<span class="movetag ${lvl===2?'m2':'m1'}">M${lvl} &#8594; M3</span>`;
+      play=`At M${lvl}, counted at spend-to-date <b>${F.usd(r.usd)}</b>. Reaching <b>M3</b> (${steps} milestone${steps>1?'s':''} away) annualises it at ~<b>${F.usd(assume)}</b> — moving fleet ARPA <span class="lift">${F.usd(curAvg)} &#8594; ${F.usd(withThis)}</span> (+${F.usd(delta)}). ${lvl===2?'One rung away — prioritise.':''}`;
+    }
+    return `<div class="oppcard">
+      <div><div class="bn">${r.name} ${moonPhases(lvl)}</div><div class="sm">${move} · ${Math.round(pct)}% of target</div>
+        <div class="gapbar"><span style="width:${pct}%"></span></div></div>
+      <div class="fig">Current ARPA<b>${F.usd(r.usd)}</b></div>
+      <div class="fig">Gap to $${T/1000}K<b style="color:var(--orange)">${F.usd(gap)}</b></div>
+      <div class="playbook">${play}</div></div>`;
+  }).join("");
+}
+
+let BB_WIRED=false;
+function wireBBControls(A, clients){
+  if(BB_WIRED) return; BB_WIRED=true;
+  document.getElementById("wfRange").addEventListener("input",e=>{ BB_PROMOTE=+e.target.value;
+    const ctx=BB_CTX, assume=BB_ASSUME!=null?BB_ASSUME:Math.round(ctx.m3plusAvg);
+    document.getElementById("wfN").textContent=BB_PROMOTE; drawWaterfall(ctx,assume); });
+  document.getElementById("bbAssume").addEventListener("input",e=>{ const v=parseInt(e.target.value); BB_ASSUME=isNaN(v)?0:v; renderBrandBuild(A,clients); });
+}
+
+function drawWaterfall(ctx, assume){
+  const T=ctx.T, svg=document.getElementById("wfChart");
+  const cur=projectedARPA(ctx,0,assume);
+  const promoted=ctx.promotable.slice(0,BB_PROMOTE);
+  // build steps: base + one step per promoted brand (cumulative)
+  const steps=[{label:"Now",val:cur,base:0,delta:cur,type:"base"}];
+  let running=cur;
+  promoted.forEach((r,i)=>{ const v=projectedARPA(ctx,i+1,assume); const d=v-running;
+    steps.push({label:r.name,val:v,base:running,delta:d,type:"up"}); running=v; });
+  const finalAvg=running;
+  document.getElementById("wfFrom").textContent=F.usd(cur);
+  document.getElementById("wfTo").textContent=F.usd(finalAvg);
+  const clears=finalAvg>=T;
+  document.getElementById("wfNote").innerHTML = BB_PROMOTE===0
+    ? `Current fleet average across ${ctx.active.length} active ROAS brands.`
+    : `Promote ${BB_PROMOTE} brand${BB_PROMOTE>1?'s':''} to M3 → average ${clears?'<span style="color:var(--green)">clears':'reaches'} ${clears?'':'<span style="color:var(--ink)">'}${F.usd(finalAvg)}</span> ${clears?'':`· still ${F.usd(T-finalAvg)} short`}`;
+
+  const W=760,H=300,padL=54,padR=30,padT=20,padB=48, iw=W-padL-padR, ih=H-padT-padB;
+  const maxV=Math.max(T*1.1, finalAvg*1.1, ...steps.map(s=>s.val));
+  const n=steps.length, bw=Math.min(70, iw/n*0.62), gap=iw/n;
+  const x=i=> padL + gap*i + (gap-bw)/2;
+  const y=v=> padT+ih - (v/maxV)*ih;
+  let g="";
+  for(let t=0;t<=4;t++){ const gy=padT+ih*t/4, val=maxV*(1-t/4);
+    g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--grid)"/>`;
+    g+=`<text x="${padL-8}" y="${gy+3}" text-anchor="end">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`; }
+  // target line
+  const ty=y(T);
+  g+=`<line x1="${padL}" y1="${ty}" x2="${W-padR}" y2="${ty}" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  g+=`<text x="${W-padR}" y="${ty-5}" text-anchor="end" fill="var(--orange)" style="font-weight:600">$${T/1000}K target</text>`;
+  // connectors + bars
+  steps.forEach((s,i)=>{ const bx=x(i);
+    const top=y(s.val), bot= s.type==="base"? y(0) : y(s.base);
+    const fill = s.type==="base"? "var(--indigo)" : "var(--green)";
+    g+=`<rect class="bar" x="${bx}" y="${top}" width="${bw}" height="${Math.max(1,bot-top)}" rx="3" fill="${fill}" opacity="${s.type==='base'?1:.9}" data-lbl="${(s.label||'').replace(/"/g,'&quot;')}" data-val="${Math.round(s.val)}" data-delta="${Math.round(s.delta)}"/>`;
+    if(i>0){ const py=y(steps[i].base); g+=`<line x1="${x(i-1)+bw}" y1="${py}" x2="${bx}" y2="${py}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>`; }
+    // label
+    const short = s.type==="base"?"Now":(s.label.length>9?s.label.slice(0,8)+"…":s.label);
+    g+=`<text x="${bx+bw/2}" y="${H-30}" text-anchor="middle" transform="rotate(30 ${bx+bw/2} ${H-30})" style="font-size:9px">${short}</text>`;
+    // value atop base + final
+    if(s.type==="base"||i===steps.length-1) g+=`<text x="${bx+bw/2}" y="${top-6}" text-anchor="middle" style="font-weight:600;font-size:10px" fill="var(--ink)">${F.usd(s.val)}</text>`;
   });
-}
-function setTheme(t){
-  document.documentElement.dataset.theme=t;
-  document.getElementById("themeBtn").textContent = t==="dark" ? "☀" : "☾";
-  SKY.retint();
-}
-function setupTheme(){
-  document.getElementById("themeBtn").onclick=()=>
-    setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+  svg.innerHTML=g;
+  const tt=document.getElementById("tooltip");
+  svg.querySelectorAll(".bar").forEach(b=>{ b.addEventListener("mousemove",e=>{ tt.style.opacity=1;
+      const d=+b.dataset.delta; tt.innerHTML=`<b>${b.dataset.lbl}</b><br>Average: ${F.usd(+b.dataset.val)}${d>0?`<br>+${F.usd(d)} from this promotion`:''}`;
+      tt.style.left=(e.clientX+14)+"px"; tt.style.top=(e.clientY-10)+"px"; });
+    b.addEventListener("mouseleave",()=>tt.style.opacity=0); });
 }
 
-/* Animated sky.
-   Dark: fireflies — wandering warm lights, pulsing glow, rare flash (page + header).
-   Light: a pale sky with faint fixed stars and occasional shooting-star streaks.
-   Header always shows the firefly swarm. Reduced-motion: one static frame. */
+const tidy=s=>String(s||"").replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g,"-").replace(/[\u00a0\u2007\u202f]/g," ").replace(/\s+/g," ").trim();
+const shortName=n=>tidy(n).replace(/\s*(l\.?l\.?c\.?-?fz?|llc|fz llc|fze|trading company|company|general trading|- moontech|- mt)\b/gi,"").replace(/\s*-\s*/g," — ").replace(/\s+/g," ").trim()||tidy(n);
+const brandName=n=>{ const t=tidy(n),tl=t.toLowerCase();
+  for(const frag in (CONFIG.BRAND_OVERRIDES||{})) if(tl.includes(frag.toLowerCase())) return CONFIG.BRAND_OVERRIDES[frag];
+  let parts=t.split(/\s*-\s*/).map(s=>s.trim()).filter(Boolean).filter(p=>!/^(moontech|mt)$/i.test(p));
+  let b=parts.length>1?parts[parts.length-1]:(parts[0]||t); b=b.replace(/[\s,]+(MT|Moontech)$/i,"").trim();
+  return parts.length>1&&b?b:shortName(parts.join(" - ")||t); };
+const shortDesc=d=>d.length>46?d.slice(0,44)+"…":d;
+
+/* ============ ROAS MODEL EXPORT (styled xlsx, matches Image 1) ============ */
+function modelStatus(c, dropped, today){
+  if(dropped) return "Dropped";
+  // recency by INVOICE date of the most recent ROAS activity (any status counts as engagement,
+  // but base health on paid ROAS invoices)
+  const paidMi=c.paid.filter(i=>i.mile&&i.invDate).sort((a,b)=>a.invDate-b.invDate);
+  const first=c.firstPaid;
+  if(!first || !paidMi.length) return "Too early";
+  const lastInv=paidMi[paidMi.length-1].invDate;
+  const monthsActive=(today.getFullYear()-first.invDate.getFullYear())*12+(today.getMonth()-first.invDate.getMonth())+1;
+  const daysSinceLast=Math.floor((today-lastInv)/86400000);
+  const lvl=c.paidLevel||0;
+  // climbing: reached a higher level within the last ~60d
+  let climbing=false;
+  if(paidMi.length>=2){ const top=paidMi[paidMi.length-1], prev=paidMi[paidMi.length-2];
+    if(top.mile>prev.mile && Math.floor((today-top.invDate)/86400000)<=60) climbing=true; }
+  if(monthsActive<=1) return "Too early";
+  if(climbing) return "Scaling";                              // actively progressing up ROAS levels
+  if(lvl>=3 && daysSinceLast<=75) return "Active";            // consistently high, still engaged
+  if(daysSinceLast>90) return "Inactive";                     // quiet too long given their journey
+  if(monthsActive<=2) return "Watch";                         // recently joined, low data
+  return "At risk";                                           // active but stalled at a low level
+}
+
+function buildModelRows(){
+  const today=STATE.today;
+  const inc=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
+  const clients=byClient(STATE.rows).filter(c=> c.hasPaid && (c.paidLevel || inc.includes(String(c.name).toLowerCase())));
+  const A=computeARPA(byClient(STATE.rows)); const arpaBy=new Map(A.rows.map(r=>[r.name,r.usd]));
+  // monthly columns: Nov-25 .. current month
+  const monthKeys=monthKeysFrom("2025-11-01", today);
+  const rowsOut=clients.map(c=>{
+    const paidMi=c.paid.filter(i=>i.mile&&i.invDate).sort((a,b)=>a.invDate-b.invDate);
+    const first=c.firstPaid;
+    const startLabel=first?F.ymLabel(F.ym(first.invDate)):"—";
+    const monthsActive=first?((today.getFullYear()-first.invDate.getFullYear())*12+(today.getMonth()-first.invDate.getMonth())+1):0;
+    const lvl=c.paidLevel||0;
+    // months at current level
+    const firstAtLvl=paidMi.filter(i=>i.mile===lvl)[0];
+    const moAtLevel=firstAtLvl?((today.getFullYear()-firstAtLvl.invDate.getFullYear())*12+(today.getMonth()-firstAtLvl.invDate.getMonth())+1):0;
+    // ramp: days between milestone payments (pay date pref, else invoice)
+    const dOf=i=>i.payDate||i.invDate;
+    const at=n=>paidMi.find(i=>i.mile===n);
+    const ramp=(a,b)=>{ const x=at(a),y=at(b); return (x&&y)?Math.round((dOf(y)-dOf(x))/86400000):null; };
+    const L12=ramp(1,2), L23=ramp(2,3), L34=ramp(3,4);
+    // total spend (net $) and monthly net $ by paid ROAS invoices
+    const roasPaid=c.paid.filter(i=>i.mile);
+    const totalSpend=roasPaid.reduce((s,i)=>s+usdNet(i),0);
+    const monthly={}; roasPaid.forEach(i=>{ const k=F.ym(i.payDate||i.invDate); monthly[k]=(monthly[k]||0)+usdNet(i); });
+    const refund=roasPaid.reduce((s,i)=>s+(i.refundUsd||(i.refundAed?i.refundAed/CONFIG.AED_PER_USD:0)),0);
+    const unpaid=c.invs.some(i=>!i.isPaid&&!i.isCancelled);
+    const status=modelStatus(c, STATE.dropped.has(c.name), today);
+    return {name:c.name, start:startLabel, monthsActive, lvl, moAtLevel, L12, L23, L34,
+      totalSpend, arpa:arpaBy.get(c.name)||0, status, monthly, refund, paid:!unpaid};
+  });
+  // sort by start date then level desc (roughly like the model)
+  rowsOut.sort((a,b)=>{ const da=a.start,db=b.start; if(da!==db){ return new Date("1 "+da)-new Date("1 "+db) || 0; } return b.lvl-a.lvl; });
+  return {rowsOut, monthKeys, today};
+}
+
+function exportModel(){
+  if(!window.XLSX){ alert("Export library still loading — try again in a second."); return; }
+  const {rowsOut, monthKeys, today}=buildModelRows();
+  const monthHdrs=monthKeys.map(k=>F.ymLabel(k));
+  const headers=["Client","Start","Mo. active","ROAS level","Mo. at level","L1→L2","L2→L3","L3→L4","Total spend","ARPA","Status","Paid?","Refund", ...monthHdrs];
+  const aoa=[headers];
+  rowsOut.forEach(r=>{
+    const mvals=monthKeys.map(k=> r.monthly[k]?Math.round(r.monthly[k]):"");
+    aoa.push([r.name, r.start, r.monthsActive, r.lvl||"", r.moAtLevel||"", r.L12??"-", r.L23??"-", r.L34??"-",
+      Math.round(r.totalSpend), Math.round(r.arpa), r.status, r.paid?"Paid":"Unpaid", r.refund?Math.round(r.refund):"", ...mvals]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+
+  // ---- styling to match Image 1 ----
+  const range=XLSX.utils.decode_range(ws['!ref']);
+  const HDR={fill:{fgColor:{rgb:"D9E1F2"}},font:{bold:true,color:{rgb:"1F3864"},sz:10},alignment:{horizontal:"center",wrapText:true},border:thin()};
+  function thin(){const s={style:"thin",color:{rgb:"C9C9DE"}};return{top:s,bottom:s,left:s,right:s};}
+  const statusColor={Active:["C6EFCE","006100"],Scaling:["FFD9A0","7A4B00"],"At risk":["FCE4EC","9C1B3A"],
+    Watch:["EDEBFB","3E278D"],"Too early":["F2F2F2","6A6A6A"],Inactive:["C0392B","FFFFFF"],Dropped:["E4483D","FFFFFF"]};
+  const lvlFill={1:"FFFFFF",2:"D7F0DD",3:"AEE0BC",4:"7FCE97",5:"4FBE74"};
+  for(let R=range.s.r;R<=range.e.r;R++){
+    for(let C=range.s.c;C<=range.e.c;C++){
+      const addr=XLSX.utils.encode_cell({r:R,c:C}); const cell=ws[addr]; if(!cell) { ws[addr]={t:"s",v:""}; }
+      const cc=ws[addr];
+      if(R===0){ cc.s=HDR; continue; }
+      cc.s={font:{sz:10,color:{rgb:"141026"}},border:thin(),alignment:{horizontal: C===0?"left":"center"}};
+      if(C>=8&&C<=9){ cc.s.numFmt="#,##0"; cc.s.font.bold=true; }               // total spend + ARPA bold
+      if(C>=13){ cc.s.numFmt="#,##0"; }                                          // monthly grid
+      if(C===0){ cc.s.font.bold=true; }
+      if(C===3){ const v=cc.v; if(v&&lvlFill[v]){ cc.s.fill={fgColor:{rgb:lvlFill[v]}}; cc.s.font.bold=true; } } // ROAS level green scale
+      if(C===10){ const sc=statusColor[cc.v]; if(sc){ cc.s.fill={fgColor:{rgb:sc[0]}}; cc.s.font={sz:10,bold:true,color:{rgb:sc[1]}}; } }
+      if(C===11){ cc.s.font={sz:10,bold:true,color:{rgb: cc.v==='Paid'?'006100':'9C1B3A'}}; }
+      if(C===12&&cc.v){ cc.s.font={sz:10,color:{rgb:'9C1B3A'}}; cc.s.numFmt="#,##0"; }
+    }
+  }
+  ws['!cols']=[{wch:20},{wch:8},{wch:9},{wch:10},{wch:11},{wch:7},{wch:7},{wch:7},{wch:11},{wch:11},{wch:10},{wch:8},{wch:9},...monthKeys.map(()=>({wch:8}))];
+  ws['!freeze']={xSplit:1,ySplit:1};
+  ws['!rows']=[{hpt:30}];
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"ROAS Model");
+  const stamp=F.date(today).replace(/\//g,"-");
+  XLSX.writeFile(wb, `Moontech_ROAS_Model_${stamp}.xlsx`);
+}
+
+/* ---------- nav / theme / sky ---------- */
+function setupNav(){
+  document.querySelectorAll(".navitem[data-r]").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll(".navitem[data-r]").forEach(x=>x.classList.toggle("on",x===b));
+    const r=b.dataset.r;
+    document.querySelectorAll(".report").forEach(s=>s.classList.toggle("on",s.id==="r-"+r));
+    document.getElementById("pageTitle").innerHTML=PAGE[r][0];
+    document.getElementById("pageSub").textContent=PAGE[r][1];
+  }));
+}
+function setTheme(t){ document.documentElement.dataset.theme=t;
+  document.getElementById("themeLbl").textContent=t==="dark"?"Light mode":"Dark mode"; }
+function setupTheme(){ document.getElementById("themeItem").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"); }
+
+/* fireflies (dark) + shooting stars (light), behind everything */
 const SKY=(()=>{
   const c=document.getElementById("sky"), ctx=c.getContext("2d");
-  const hc=document.getElementById("hsky"), hctx=hc.getContext("2d");
-  let flies=[], hflies=[], stars=[], shooters=[], W=0,H=0,HW=0,HH=0, raf=null, cool=0;
+  let flies=[], stars=[], shooters=[], W=0,H=0, raf=null, cool=0;
   const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   const mode=()=>document.documentElement.dataset.theme||"dark";
-  const mkFly=(w,h)=>({ x:Math.random()*w, y:Math.random()*h,
-      a:Math.random()*Math.PI*2, sp:.18+Math.random()*.35, turn:(Math.random()-.5)*.06,
-      ph:Math.random()*Math.PI*2, ps:.02+Math.random()*.03,
-      hue:Math.random()<.35?[190,255,170]:[255,224,140],
-      flash:0, r:1.1+Math.random()*1.1 });
-  function size(){
-    const dpr=Math.min(2, window.devicePixelRatio||1);
-    W=innerWidth; H=innerHeight;
-    c.width=W*dpr; c.height=H*dpr; c.style.width=W+"px"; c.style.height=H+"px";
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    const hdr=document.querySelector("header.top");
-    HW=hdr.offsetWidth; HH=hdr.offsetHeight;
-    hc.width=HW*dpr; hc.height=HH*dpr; hc.style.width=HW+"px"; hc.style.height=HH+"px";
-    hctx.setTransform(dpr,0,0,dpr,0,0);
-    seedAll(); if(reduced) draw();
-  }
-  function seedAll(){
-    flies=Array.from({length:Math.min(95,Math.round(W*H/16000))},()=>mkFly(W,H));
-    hflies=Array.from({length:Math.max(10,Math.round(HW/90))},()=>mkFly(HW,HH));
-    stars=Array.from({length:Math.min(120,Math.round(W*H/14000))},()=>({
-      x:Math.random()*W, y:Math.random()*H*0.9, r:Math.random()*1.1+.3,
-      ph:Math.random()*Math.PI*2, ps:.006+Math.random()*.02 }));
-    shooters=[];
-  }
-  function stepFly(f,w,h){
-    f.ph+=f.ps;
-    if(reduced) return;
-    f.a+=f.turn + (Math.random()-.5)*.05;
-    f.x+=Math.cos(f.a)*f.sp; f.y+=Math.sin(f.a)*f.sp*.7;
-    if(f.x<-20)f.x=w+20; if(f.x>w+20)f.x=-20; if(f.y<-20)f.y=h+20; if(f.y>h+20)f.y=-20;
-    if(f.flash>0) f.flash-=.04; else if(Math.random()<.0015) f.flash=1;
-  }
-  function drawFly(g,f){
-    const base=.15+.45*Math.abs(Math.sin(f.ph));
-    const a=Math.min(1, base + f.flash*.7);
-    const [r,gr,b]=f.hue;
-    const glow=g.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r*7);
-    glow.addColorStop(0,`rgba(${r},${gr},${b},${a})`);
-    glow.addColorStop(.35,`rgba(${r},${gr},${b},${a*.35})`);
-    glow.addColorStop(1,`rgba(${r},${gr},${b},0)`);
-    g.fillStyle=glow; g.beginPath(); g.arc(f.x,f.y,f.r*7,0,7); g.fill();
-    g.fillStyle=`rgba(255,252,230,${Math.min(1,a+.25)})`;
-    g.beginPath(); g.arc(f.x,f.y,f.r,0,7); g.fill();
-  }
-  function spawnShooter(){
-    const startX=Math.random()*W*0.7;
-    const startY=Math.random()*H*0.4;
-    const ang=Math.PI*0.18 + Math.random()*Math.PI*0.12;      // shallow downward-right
-    const speed=9+Math.random()*7;
-    shooters.push({ x:startX, y:startY, vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed,
-      len:120+Math.random()*140, life:1 });
-  }
-  function drawShooters(){
-    for(let i=shooters.length-1;i>=0;i--){
-      const s=shooters[i];
-      if(!reduced){ s.x+=s.vx; s.y+=s.vy; s.life-=.012; }
-      const tx=s.x - s.vx/Math.hypot(s.vx,s.vy)*s.len;
-      const ty=s.y - s.vy/Math.hypot(s.vx,s.vy)*s.len;
-      const grd=ctx.createLinearGradient(s.x,s.y,tx,ty);
-      const a=Math.max(0,s.life)*.8;
-      grd.addColorStop(0,`rgba(120,110,210,${a})`);
-      grd.addColorStop(1,`rgba(120,110,210,0)`);
-      ctx.strokeStyle=grd; ctx.lineWidth=2; ctx.lineCap="round";
-      ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(tx,ty); ctx.stroke();
-      ctx.fillStyle=`rgba(150,140,235,${a})`; ctx.beginPath(); ctx.arc(s.x,s.y,1.8,0,7); ctx.fill();
-      if(s.life<=0 || s.x>W+50 || s.y>H+50) shooters.splice(i,1);
-    }
-  }
-  function draw(){
-    ctx.clearRect(0,0,W,H); hctx.clearRect(0,0,HW,HH);
-    if(mode()==="dark"){
-      for(const f of flies){ stepFly(f,W,H); drawFly(ctx,f); }
-    } else {
-      for(const st of stars){ st.ph+=st.ps;
-        const a=.12+.33*Math.abs(Math.sin(st.ph));
-        ctx.fillStyle=`rgba(120,130,190,${a})`;
-        ctx.beginPath(); ctx.arc(st.x,st.y,st.r,0,7); ctx.fill(); }
-      if(!reduced){ cool--; if(cool<=0 && shooters.length<3){ spawnShooter(); cool=90+Math.random()*160; } }
-      drawShooters();
-    }
-    for(const f of hflies){ stepFly(f,HW,HH); drawFly(hctx,f); }   // header swarm, both themes
-    if(!reduced) raf=requestAnimationFrame(draw);
-  }
-  function start(){ if(raf) cancelAnimationFrame(raf); size(); if(!reduced) raf=requestAnimationFrame(draw); }
-  addEventListener("resize",()=>{ size(); });
-  return { start, retint:()=>{ if(reduced){ draw(); } } };
+  const mkFly=()=>({x:Math.random()*W,y:Math.random()*H,a:Math.random()*6.28,sp:.18+Math.random()*.35,turn:(Math.random()-.5)*.06,ph:Math.random()*6.28,ps:.02+Math.random()*.03,hue:Math.random()<.35?[190,255,170]:[255,224,140],flash:0,r:1.1+Math.random()*1.1});
+  function size(){ const dpr=Math.min(2,window.devicePixelRatio||1); W=innerWidth;H=innerHeight;
+    c.width=W*dpr;c.height=H*dpr;c.style.width=W+"px";c.style.height=H+"px";ctx.setTransform(dpr,0,0,dpr,0,0); seed(); if(reduced)draw(); }
+  function seed(){ flies=Array.from({length:Math.min(90,Math.round(W*H/17000))},mkFly);
+    stars=Array.from({length:Math.min(110,Math.round(W*H/15000))},()=>({x:Math.random()*W,y:Math.random()*H*.9,r:Math.random()*1.1+.3,ph:Math.random()*6.28,ps:.006+Math.random()*.02})); shooters=[]; }
+  function draw(){ ctx.clearRect(0,0,W,H);
+    if(mode()==="dark"){ for(const f of flies){ f.ph+=f.ps; if(!reduced){ f.a+=f.turn+(Math.random()-.5)*.05; f.x+=Math.cos(f.a)*f.sp; f.y+=Math.sin(f.a)*f.sp*.7;
+        if(f.x<-20)f.x=W+20;if(f.x>W+20)f.x=-20;if(f.y<-20)f.y=H+20;if(f.y>H+20)f.y=-20; if(f.flash>0)f.flash-=.04;else if(Math.random()<.0015)f.flash=1; }
+        const a=Math.min(1,.15+.45*Math.abs(Math.sin(f.ph))+f.flash*.7),[r,g,b]=f.hue;
+        const gl=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r*7); gl.addColorStop(0,`rgba(${r},${g},${b},${a})`); gl.addColorStop(.35,`rgba(${r},${g},${b},${a*.35})`); gl.addColorStop(1,`rgba(${r},${g},${b},0)`);
+        ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(f.x,f.y,f.r*7,0,7); ctx.fill();
+        ctx.fillStyle=`rgba(255,252,230,${Math.min(1,a+.25)})`; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,7); ctx.fill(); }
+    } else { for(const s of stars){ s.ph+=s.ps; const a=.12+.33*Math.abs(Math.sin(s.ph)); ctx.fillStyle=`rgba(120,110,190,${a})`; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); ctx.fill(); }
+      if(!reduced){ cool--; if(cool<=0&&shooters.length<3){ const ang=.5+Math.random()*.4,sp=9+Math.random()*7; shooters.push({x:Math.random()*W*.7,y:Math.random()*H*.4,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,len:120+Math.random()*140,life:1}); cool=90+Math.random()*160; } }
+      for(let i=shooters.length-1;i>=0;i--){ const s=shooters[i]; if(!reduced){s.x+=s.vx;s.y+=s.vy;s.life-=.012;}
+        const hyp=Math.hypot(s.vx,s.vy),tx=s.x-s.vx/hyp*s.len,ty=s.y-s.vy/hyp*s.len,a=Math.max(0,s.life)*.8;
+        const gr=ctx.createLinearGradient(s.x,s.y,tx,ty); gr.addColorStop(0,`rgba(120,92,255,${a})`); gr.addColorStop(1,`rgba(120,92,255,0)`);
+        ctx.strokeStyle=gr; ctx.lineWidth=2; ctx.lineCap="round"; ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(tx,ty); ctx.stroke();
+        ctx.fillStyle=`rgba(150,120,255,${a})`; ctx.beginPath(); ctx.arc(s.x,s.y,1.8,0,7); ctx.fill();
+        if(s.life<=0||s.x>W+50||s.y>H+50) shooters.splice(i,1); } }
+    if(!reduced) raf=requestAnimationFrame(draw); }
+  function start(){ if(raf)cancelAnimationFrame(raf); size(); if(!reduced)raf=requestAnimationFrame(draw); }
+  addEventListener("resize",size);
+  return {start, retint:()=>{if(reduced)draw();}};
 })();
 
-/* ===================== CONTROLS + BOOT ===================== */
+/* ---------- controls / boot ---------- */
 function buildMonthSelector(){
-  const sel=document.getElementById("monthSel");
-  const keys=monthKeysFrom(CONFIG.ACQUISITION_START, STATE.today);
+  const sel=document.getElementById("monthSel"), keys=monthKeysFrom(CONFIG.ACQUISITION_START,STATE.today), cur=F.ym(STATE.today);
   STATE.months=keys;
-  const cur=F.ym(STATE.today);
   const yrs=[...new Set(STATE.rows.flatMap(r=>[r.invDate,r.payDate]).filter(Boolean).map(d=>d.getFullYear()))].sort();
-  sel.innerHTML=`<option value="ALL">Overall</option>`+
-    yrs.map(y=>`<option value="Y${y}">${y}</option>`).join("")+
-    `<option disabled>──────</option>`+
-    keys.map(k=>`<option value="${k}" ${k===cur?"selected":""}>${F.ymLabel(k)}</option>`).join("");
-  STATE.month=cur;
-  sel.onchange=e=>{ STATE.month=e.target.value; render(); };
+  sel.innerHTML=`<option value="ALL">Overall</option>`+yrs.map(y=>`<option value="Y${y}">${y}</option>`).join("")+`<option disabled>──────</option>`+keys.map(k=>`<option value="${k}" ${k===cur?"selected":""}>${F.ymLabel(k)}</option>`).join("");
+  STATE.month=cur; sel.onchange=e=>{STATE.month=e.target.value;render();};
 }
 function setupControls(){
   const search=document.getElementById("search"), ta=document.getElementById("typeahead");
-  search.addEventListener("input",e=>{
-    const q=e.target.value.trim(); STATE.query=q;
-    if(q.length>=1){
-      const names=[...new Set(STATE.rows.map(r=>r.brand))].filter(n=>n.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  search.addEventListener("input",e=>{ const q=e.target.value.trim(); STATE.query=q;
+    if(q.length>=1){ const names=[...new Set(STATE.rows.map(r=>r.brand))].filter(n=>n.toLowerCase().includes(q.toLowerCase())).slice(0,8);
       const invs=STATE.rows.filter(r=>r.invoice.toLowerCase().startsWith(q.toLowerCase())).slice(0,4);
       let html=names.map(n=>`<div class="item" data-v="${n.replace(/"/g,'&quot;')}">${n}<small>${n.slice(0,4)}</small></div>`).join("");
       html+=invs.map(r=>`<div class="item" data-v="${r.invoice}"><small>${r.invoice}</small>${r.brand}</div>`).join("");
-      ta.innerHTML=html; ta.classList.toggle("open",!!html);
-    } else ta.classList.remove("open");
-    render();
-  });
-  ta.addEventListener("click",e=>{ const it=e.target.closest(".item"); if(!it) return;
-    search.value=it.dataset.v; STATE.query=it.dataset.v; ta.classList.remove("open"); render(); });
+      ta.innerHTML=html; ta.classList.toggle("open",!!html); } else ta.classList.remove("open");
+    render(); });
+  ta.addEventListener("click",e=>{ const it=e.target.closest(".item"); if(!it)return; search.value=it.dataset.v; STATE.query=it.dataset.v; ta.classList.remove("open"); render(); });
   document.addEventListener("click",e=>{ if(!e.target.closest(".search-wrap")) ta.classList.remove("open"); });
-  document.getElementById("resetBtn").onclick=()=>{ search.value=""; STATE.query=""; STATE.leads=75; STATE.ledgerFilter="all"; STATE.dropped=new Set();
+  document.getElementById("resetBtn").onclick=()=>{ search.value="";STATE.query="";STATE.leads=75;STATE.ledgerFilter="all";STATE.dropped=new Set(); BB_FILTER=null; BB_PROMOTE=0; BB_ASSUME=null;
     document.querySelectorAll("#ledgerFilter button").forEach(b=>b.classList.toggle("on",b.dataset.f==="all"));
     STATE.month=F.ym(STATE.today); document.getElementById("monthSel").value=STATE.month; render(); };
-  document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
-    document.querySelectorAll("#ledgerFilter button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
-    STATE.ledgerFilter=b.dataset.f; render(); });
+  document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
+    document.querySelectorAll("#ledgerFilter button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); STATE.ledgerFilter=b.dataset.f; render(); });
   document.getElementById("sampleBtn").onclick=()=>loadSample();
   document.getElementById("refreshBtn").onclick=()=>loadFromSheet(true);
-  document.getElementById("fileInput").addEventListener("change",e=>{
-    const file=e.target.files[0]; if(!file) return;
-    Papa.parse(file,{header:true,skipEmptyLines:true,complete:res=>ingest(res.data,res.meta.fields,"Uploaded file: "+file.name,"live")});
-  });
+  document.getElementById("exportBtn").onclick=exportModel;
+  document.getElementById("fileInput").addEventListener("change",e=>{ const file=e.target.files[0]; if(!file)return;
+    Papa.parse(file,{header:true,skipEmptyLines:true,complete:res=>ingest(res.data,res.meta.fields,"Uploaded: "+file.name,"live")}); });
 }
-function setStatus(kind,msg){ const d=document.getElementById("srcDot"), m=document.getElementById("srcMsg");
-  d.className="dot "+kind; m.textContent=msg; }
-
-function ingest(data, fields, sourceMsg, kind){
-  const {rows,today}=normalizeRows(data, fields||Object.keys(data[0]||{}));
-  if(!rows.length){ setStatus("err","No rows found — check the sheet/tab and its headers."); return; }
-  STATE.rows=rows; STATE.today=today; STATE.source=sourceMsg;
-  setStatus(kind==="live"?"live":"sample", sourceMsg+" · "+rows.length+" rows");
-  buildMonthSelector(); render();
-}
-
-function loadFromSheet(isRefresh){
-  const url=activeUrl();
-  const diag=document.getElementById("diag");
-  if(!url){ loadSample(true,{kind:"sample",
-    msg:"No sheet URL set in CONFIG — showing sample data.",
-    detail:"Open this file in a text editor and paste your published CSV link into SHEET_CSV_URL near the top."}); return; }
-  diag.textContent="";
-  setStatus("sample","Fetching sheet…");
-  if(/\/edit/.test(url) || (!/output=csv/.test(url) && !/tqx=out:csv/.test(url))){
-    loadSample(true,{kind:"err", msg:"That link isn't a CSV export — showing sample data.",
-      detail:"The URL must end in output=csv (Publish to web → CSV). A normal /edit sheet link won't work. Yours: "+url.slice(0,80)+"…"}); return;
-  }
+function setStatus(kind,msg){ document.getElementById("srcDot").className="dot "+kind; document.getElementById("srcMsg").textContent=msg; }
+function ingest(data,fields,src,kind){ const {rows,today}=normalizeRows(data,fields||Object.keys(data[0]||{}));
+  if(!rows.length){ setStatus("err","No rows found — check the sheet/tab and headers."); return; }
+  STATE.rows=rows; STATE.today=today; STATE.source=src; setStatus(kind==="live"?"live":"sample",src+" · "+rows.length+" rows"); buildMonthSelector(); render(); }
+function loadFromSheet(isRefresh){ const url=activeUrl(), diag=document.getElementById("diag");
+  if(!url){ loadSample(true,{kind:"sample",msg:"No sheet URL set — showing sample.",detail:"Paste your published CSV link into SHEET_CSV_URL."}); return; }
+  diag.textContent=""; setStatus("sample","Fetching sheet…");
+  if(/\/edit/.test(url)||(!/output=csv/.test(url)&&!/tqx=out:csv/.test(url))){ loadSample(true,{kind:"err",msg:"That link isn't a CSV export — showing sample.",detail:"URL must end in output=csv."}); return; }
   Papa.parse(url,{download:true,header:true,skipEmptyLines:true,
-    complete:res=>{
-      if(!res.data||!res.data.length){ loadSample(true,{kind:"err",
-        msg:"Sheet reached, but no rows came back — showing sample data.",
-        detail:"Usually the wrong tab was published. Re-publish choosing the receivables tab specifically."}); return; }
+    complete:res=>{ if(!res.data||!res.data.length){ loadSample(true,{kind:"err",msg:"Sheet reached, no rows — showing sample.",detail:"Wrong tab published?"}); return; }
       const heads=(res.meta.fields||[]).map(norm);
-      if(!heads.includes(norm("client name")) && !heads.includes(norm("invoice"))){
-        loadSample(true,{kind:"err", msg:"Sheet reached, but the columns don't look right — showing sample data.",
-          detail:"Expected headers on row 1 including Invoice and Client Name. Got: "+(res.meta.fields||[]).slice(0,6).join(" | ")}); return; }
-      ingest(res.data,res.meta.fields,"Live · Google Sheet","live");
-    },
-    error:err=>{ loadSample(true,{kind:"err",
-      msg:"Couldn't reach the sheet — showing sample data.",
-      detail:"The link is either not published, or published as a web page instead of CSV. Error: "+((err&&err.message)||"network/CORS blocked")}); }
-  });
+      if(!heads.includes(norm("client name"))&&!heads.includes(norm("invoice"))){ loadSample(true,{kind:"err",msg:"Columns don't look right — showing sample.",detail:"Got: "+(res.meta.fields||[]).slice(0,6).join(" | ")}); return; }
+      ingest(res.data,res.meta.fields,"Live · Google Sheet","live"); },
+    error:err=>{ loadSample(true,{kind:"err",msg:"Couldn't reach the sheet — showing sample.",detail:"Not published, or published as web page not CSV. "+((err&&err.message)||"network/CORS")}); } });
 }
+window.addEventListener("DOMContentLoaded",()=>{ setupControls(); setupNav(); setupTheme(); SKY.start(); loadFromSheet(false);
+  if(CONFIG.REFRESH_SECONDS>0) setInterval(()=>loadFromSheet(true),CONFIG.REFRESH_SECONDS*1000); });
 
-window.addEventListener("DOMContentLoaded",()=>{
-  setupControls(); setupTabs(); setupTheme();
-  SKY.start();
-  loadFromSheet(false);
-  if(CONFIG.REFRESH_SECONDS>0) setInterval(()=>loadFromSheet(true), CONFIG.REFRESH_SECONDS*1000);
-});
-
-/* ---------- sample data (mirrors the screenshot; replaced by your sheet) ---------- */
 function loadSample(silent, reason){
-  const csv=`Invoice,Client Name,Description,Brand,ROAS- Milestone,Invoice Date,Payment Terms,Due date,Days past due,Total,Invoice Status,Ammendment Details,No of reminders till confirmation,No of reminders till payment,Payment receipt date,Days between invoicing and payment,Todays Date
-DRM-01,DREAMABLE - Moontech,March 2025 Influencer Marketing,New Brand,N/A,03/12/2025,,3/12/2025,0,30011.56,Paid,,,,03/17/2025,5,08/19/2026
-DRM-02,DREAMABLE - Moontech,March 2025 II Influencer Marketing,New Brand,N/A,03/20/2025,,3/20/2025,0,30011.56,Paid,,,,03/26/2025,6,08/19/2026
-LCX-01,LC50X L.L.C-FZ - YaHala,June 2025 Influencer Campaign,New Brand,N/A,05/27/2025,,5/27/2025,0,23128.00,Paid,,,,06/18/2025,22,08/19/2026
-WFQ-01,Wafeq FZ LLC,June/July 2025 Influencer Marketing,New Brand,N/A,06/26/2025,,6/26/2025,0,23300.00,Paid,,,,07/14/2025,18,08/19/2026
-JSH-01,Just Hype Trading LLC,July 2025 Influencer Marketing,New Brand,N/A,07/01/2025,,7/1/2025,0,27456.00,Paid,,,,07/02/2025,1,08/19/2026
-JSH-02,Just Hype Trading LLC,August 2025 Influencer Marketing,,N/A,08/08/2025,,8/8/2025,0,7315.00,Paid,,,,08/14/2025,6,08/19/2026
-JSH-03,Just Hype Trading LLC,August 2025 Influencer Marketing II,,N/A,08/14/2025,,8/14/2025,0,22802.25,Paid,,,,08/18/2025,4,08/19/2026
-JSH-04,Just Hype Trading LLC,August 2025 Influencer Marketing III,,N/A,08/25/2025,,8/25/2025,359,7831.60,Cancelled,Service cancelled,,,,,08/19/2026
-TEM-01,Touche Elektronik Magazacilik ve Teknoloji A.S,November 2025 Performance Marketing (ROAS),New Brand,Milestone-1,11/10/2025,,11/10/2025,0,3672.50,Paid,,,,11/10/2025,0,08/19/2026
-TEM-02,Touche Elektronik Magazacilik ve Teknoloji A.S,November 2025 Performance Marketing ROAS,,Milestone-1,11/24/2025,,11/24/2025,268,3672.50,Cancelled,not yet achieved,,,,,08/19/2026
-ANF-01,ANFASIK DOKHOON (LLC),December 2025 Performance Marketing (ROAS),New Brand,Milestone-1,12/04/2025,,12/4/2025,0,7350.00,Paid,,,,02/20/2026,78,08/19/2026
-RTB-01,KITOPI CATERING SERVICES LLC - Right Bite,December 2025 Performance Marketing (ROAS M1),New Brand,Milestone-1,12/23/2025,,12/23/2025,0,3672.50,Paid,,,,01/02/2026,10,08/19/2026
-GSL-01,Golden Scent LLC - Moontech,December 2025 Performance (ROAS Campaign M1),New Brand,Milestone-1,12/30/2025,,12/30/2025,0,3672.50,Paid,,,,01/06/2026,7,08/19/2026
-GSL-02,Golden Scent LLC - Moontech,January 2026 Performance (ROAS Campaign M2),,Milestone-2,01/06/2026,,1/6/2026,0,7345.00,Paid,,,,01/12/2026,6,08/19/2026
-GSL-03,Golden Scent LLC - Moontech,February 2026 Performance (ROAS Campaign M3),,Milestone-3,02/02/2026,,2/2/2026,0,11017.50,Paid,,,,02/12/2026,10,08/19/2026
-RTB-02,KITOPI CATERING SERVICES LLC - Right Bite,February 2026 Performance (ROAS Campaign M2),,Milestone-2,02/06/2026,,2/6/2026,0,7789.37,Paid,,,,02/17/2026,11,08/19/2026
-SEH-01,Sahseh Digital Marketing LLC,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/23/2026,,2/23/2026,0,3856.13,Paid,,,,03/04/2026,9,08/19/2026
-BMP-01,Bookmypet FZE - Moontech,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/24/2026,,2/24/2026,0,3856.13,Paid,,,,03/04/2026,9,08/19/2026
-ALM-01,Alma International Company,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/25/2026,,2/25/2026,175,3672.50,Cancelled,shipment issues,,,,,08/19/2026
-DRP-01,Dropshop llc - Lawni,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/26/2026,,2/26/2026,0,3856.13,Paid,,,,03/07/2026,9,08/19/2026
-KEK-01,Khan El Kaser cosmetics trading llc,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/27/2026,,2/27/2026,173,3856.13,Cancelled,shipment issues,,,,,08/19/2026
-SEC-01,Studio earth collective LLZ FC,March 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,03/02/2026,,3/2/2026,0,3856.13,Paid,,,,04/22/2026,51,08/19/2026
-SMT-01,Smarteletec - NumeroEsim,March 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,03/13/2026,,3/13/2026,0,3672.50,Paid,,,,04/02/2026,20,08/19/2026
-GSL-04,Golden Scent LLC - Moontech,March 2026 Performance (ROAS Campaign M4),,Milestone-4,03/13/2026,,3/13/2026,0,18362.50,Paid,,,,03/24/2026,11,08/19/2026
-FAS-01,Fons and Splendor (Pure N Bio) - Moontech,April 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,04/07/2026,,4/7/2026,0,3672.50,Paid,,,,04/09/2026,2,08/19/2026
-RTB-03,KITOPI CATERING SERVICES LLC - Right Bite,March 2026 Performance ROAS Campaign M3,,Milestone-3,04/21/2026,,4/21/2026,0,11568.38,Paid,,,,05/15/2026,24,08/19/2026
-AAL-01,Abwntya Alarbyt Ltqnyt Almalwmat Co - Oneshot,April 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,04/24/2026,,4/24/2026,0,3672.50,Paid,,,,05/07/2026,13,08/19/2026
-GSL-05,Golden Scent LLC - Moontech,April 2026 Performance (ROAS Campaign M5),,Milestone-5,04/27/2026,,4/27/2026,114,18362.50,Unconfirmed,,,,,,08/19/2026
-AYF-01,Al Yasra Fashion General Trading Company - DKNY,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/13/2026,,5/13/2026,0,3672.50,Paid,,,,05/19/2026,6,08/19/2026
-AYF-02,Al Yasra Fashion General Trading Company - Allbirds,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/19/2026,,5/19/2026,0,3672.50,Paid,,,,05/19/2026,0,08/19/2026
-AYF-03,Al Yasra Fashion General Trading Company - Kizik,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/19/2026,,5/19/2026,0,3672.50,Paid,,,,05/19/2026,0,08/19/2026
-IZI-01,Izil Cosmetics Trading LLC - Moontech,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/25/2026,,5/25/2026,0,31500.00,Paid,,,,07/31/2026,67,08/19/2026
-AWG-01,AMAANI WELLNESS GENERAL TRADING L.L.C,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/25/2026,,5/25/2026,0,3856.13,Paid,,,,05/25/2026,0,08/19/2026
-RTB-04,KITOPI CATERING SERVICES LLC - Right Bite,June 2026 Performance (ROAS Campaign M4),,Milestone-4,06/02/2026,,6/2/2026,0,19280.63,Paid,,,,06/17/2026,15,08/19/2026
-TEC-01,The Elite Cars International Commercial Agencies,June 2026 Performance (CPL Campaign Stage 1),New Brand,Stage 1,06/04/2026,,6/4/2026,0,3856.13,Paid,,,,06/09/2026,5,08/19/2026
-MST-01,Maison Safka Technology Company,June 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,06/04/2026,,6/4/2026,0,3672.50,Paid,,,,06/04/2026,0,08/19/2026
-ARM-01,Arte Madrid - MT,June 2026 Performance Marketing,New Brand,Milestone-1,06/26/2026,,6/26/2026,0,3672.50,Paid,,,,06/30/2026,4,08/19/2026
-MST-02,Maison Safka Technology Company,July 2026 Performance (ROAS Campaign M2),,Milestone-2,07/08/2026,,7/8/2026,0,7345.00,Paid,,,,07/14/2026,6,08/19/2026
-JSH-05,Justhype,July 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,07/08/2026,,7/8/2026,0,3856.13,Paid,,,,07/08/2026,0,08/19/2026
-RTB-05,KITOPI CATERING SERVICES LLC - Right Bite,July 2026 Performance (ROAS Campaign M5),,Milestone-5,07/09/2026,,7/9/2026,0,28920.94,Paid,,,,08/04/2026,26,08/19/2026
-REF-01,Reefi -MT,July 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,07/09/2026,,7/9/2026,0,3672.50,Paid,,,,07/20/2026,11,08/19/2026`;
+  const csv=`Invoice,Client Name,Brand Name,Description,Brand,ROAS- Milestone,Invoice Date,Payment Terms,Due date,Days past due,Total,Invoice Status,Ammendment Details,No of reminders till confirmation,No of reminders till payment,Payment receipt date,Days between invoicing and payment,Todays Date
+DRM-01,DREAMABLE - Moontech,Dreamable,March 2025 Influencer Marketing,New Brand,N/A,03/12/2025,,3/12/2025,0,30011.56,Paid,,,,03/17/2025,5,08/19/2026
+DRM-02,DREAMABLE - Moontech,Dreamable,March 2025 II Influencer Marketing,New Brand,N/A,03/20/2025,,3/20/2025,0,30011.56,Paid,,,,03/26/2025,6,08/19/2026
+LCX-01,LC50X L.L.C-FZ - YaHala,Ya Hala,June 2025 Influencer Campaign,New Brand,N/A,05/27/2025,,5/27/2025,0,23128.00,Paid,,,,06/18/2025,22,08/19/2026
+WFQ-01,Wafeq FZ LLC,Wafeq,June/July 2025 Influencer Marketing,New Brand,N/A,06/26/2025,,6/26/2025,0,23300.00,Paid,,,,07/14/2025,18,08/19/2026
+JSH-01,Just Hype Trading LLC,JustHype,July 2025 Influencer Marketing,New Brand,N/A,07/01/2025,,7/1/2025,0,27456.00,Paid,,,,07/02/2025,1,08/19/2026
+JSH-02,Just Hype Trading LLC,JustHype,August 2025 Influencer Marketing,,N/A,08/08/2025,,8/8/2025,0,7315.00,Paid,,,,08/14/2025,6,08/19/2026
+JSH-03,Just Hype Trading LLC,JustHype,August 2025 Influencer Marketing II,,N/A,08/14/2025,,8/14/2025,0,22802.25,Paid,,,,08/18/2025,4,08/19/2026
+JSH-04,Just Hype Trading LLC,JustHype,August 2025 Influencer Marketing III,,N/A,08/25/2025,,8/25/2025,359,7831.60,Cancelled,Service cancelled,,,,,08/19/2026
+TEM-01,Touche Elektronik Magazacilik ve Teknoloji A.S,Touche Prive,November 2025 Performance Marketing (ROAS),New Brand,Milestone-1,11/10/2025,,11/10/2025,0,3672.50,Paid,,,,11/10/2025,0,08/19/2026
+TEM-02,Touche Elektronik Magazacilik ve Teknoloji A.S,Touche Prive,November 2025 Performance Marketing ROAS,,Milestone-1,11/24/2025,,11/24/2025,268,3672.50,Cancelled,not yet achieved,,,,,08/19/2026
+ANF-01,ANFASIK DOKHOON (LLC),Anfasik Dokhoon,December 2025 Performance Marketing (ROAS),New Brand,Milestone-1,12/04/2025,,12/4/2025,0,7350.00,Paid,,,,02/20/2026,78,08/19/2026
+RTB-01,KITOPI CATERING SERVICES LLC - Right Bite,Right Bite,December 2025 Performance Marketing (ROAS M1),New Brand,Milestone-1,12/23/2025,,12/23/2025,0,3672.50,Paid,,,,01/02/2026,10,08/19/2026
+GSL-01,Golden Scent LLC - Moontech,Golden Scent,December 2025 Performance (ROAS Campaign M1),New Brand,Milestone-1,12/30/2025,,12/30/2025,0,3672.50,Paid,,,,01/06/2026,7,08/19/2026
+GSL-02,Golden Scent LLC - Moontech,Golden Scent,January 2026 Performance (ROAS Campaign M2),,Milestone-2,01/06/2026,,1/6/2026,0,7345.00,Paid,,,,01/12/2026,6,08/19/2026
+GSL-03,Golden Scent LLC - Moontech,Golden Scent,February 2026 Performance (ROAS Campaign M3),,Milestone-3,02/02/2026,,2/2/2026,0,11017.50,Paid,,,,02/12/2026,10,08/19/2026
+RTB-02,KITOPI CATERING SERVICES LLC - Right Bite,Right Bite,February 2026 Performance (ROAS Campaign M2),,Milestone-2,02/06/2026,,2/6/2026,0,7789.37,Paid,,,,02/17/2026,11,08/19/2026
+SEH-01,Sahseh Digital Marketing LLC,Sahseh,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/23/2026,,2/23/2026,0,3856.13,Paid,,,,03/04/2026,9,08/19/2026
+BMP-01,Bookmypet FZE - Moontech,Book My Pet,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/24/2026,,2/24/2026,0,3856.13,Paid,,,,03/04/2026,9,08/19/2026
+ALM-01,Alma International Company,Alma,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/25/2026,,2/25/2026,175,3672.50,Cancelled,shipment issues,,,,,08/19/2026
+DRP-01,Dropshop llc - Lawni,Lawni,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/26/2026,,2/26/2026,0,3856.13,Paid,,,,03/07/2026,9,08/19/2026
+KEK-01,Khan El Kaser cosmetics trading llc,Khan El Kaser,February 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,02/27/2026,,2/27/2026,173,3856.13,Cancelled,shipment issues,,,,,08/19/2026
+SEC-01,Studio earth collective LLZ FC,Studio Earth,March 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,03/02/2026,,3/2/2026,0,3856.13,Paid,,,,04/22/2026,51,08/19/2026
+SMT-01,Smarteletec - NumeroEsim,Numero,March 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,03/13/2026,,3/13/2026,0,3672.50,Paid,,,,04/02/2026,20,08/19/2026
+GSL-04,Golden Scent LLC - Moontech,Golden Scent,March 2026 Performance (ROAS Campaign M4),,Milestone-4,03/13/2026,,3/13/2026,0,18362.50,Paid,,,,03/24/2026,11,08/19/2026
+FAS-01,Fons and Splendor (Pure N Bio) - Moontech,Pure N Bio,April 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,04/07/2026,,4/7/2026,0,3672.50,Paid,,,,04/09/2026,2,08/19/2026
+RTB-03,KITOPI CATERING SERVICES LLC - Right Bite,Right Bite,March 2026 Performance ROAS Campaign M3,,Milestone-3,04/21/2026,,4/21/2026,0,11568.38,Paid,,,,05/15/2026,24,08/19/2026
+AAL-01,Abwntya Alarbyt Ltqnyt Almalwmat Co - Oneshot,Oneshot,April 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,04/24/2026,,4/24/2026,0,3672.50,Paid,,,,05/07/2026,13,08/19/2026
+GSL-05,Golden Scent LLC - Moontech,Golden Scent,April 2026 Performance (ROAS Campaign M5),,Milestone-5,04/27/2026,,4/27/2026,114,18362.50,Unconfirmed,,,,,,08/19/2026
+AYF-01,Al Yasra Fashion General Trading Company - DKNY,DKNY,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/13/2026,,5/13/2026,0,3672.50,Paid,,,,05/19/2026,6,08/19/2026
+AYF-02,Al Yasra Fashion General Trading Company - Allbirds,All Birds,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/19/2026,,5/19/2026,0,3672.50,Paid,,,,05/19/2026,0,08/19/2026
+AYF-03,Al Yasra Fashion General Trading Company - Kizik,Kizik,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/19/2026,,5/19/2026,0,3672.50,Paid,,,,05/19/2026,0,08/19/2026
+IZI-01,Izil Cosmetics Trading LLC - Moontech,Izil,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/25/2026,,5/25/2026,0,31500.00,Paid,,,,07/31/2026,67,08/19/2026
+AWG-01,AMAANI WELLNESS GENERAL TRADING L.L.C,Aiza,May 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,05/25/2026,,5/25/2026,0,3856.13,Paid,,,,05/25/2026,0,08/19/2026
+RTB-04,KITOPI CATERING SERVICES LLC - Right Bite,Right Bite,June 2026 Performance (ROAS Campaign M4),,Milestone-4,06/02/2026,,6/2/2026,0,19280.63,Paid,,,,06/17/2026,15,08/19/2026
+TEC-01,The Elite Cars International Commercial Agencies,Jetour,June 2026 Performance (CPL Campaign Stage 1),New Brand,Stage 1,06/04/2026,,6/4/2026,0,3856.13,Paid,,,,06/09/2026,5,08/19/2026
+MST-01,Maison Safka Technology Company,Maison Safka,June 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,06/04/2026,,6/4/2026,0,3672.50,Paid,,,,06/04/2026,0,08/19/2026
+ARM-01,Arte Madrid - MT,Arte Madrid,June 2026 Performance Marketing,New Brand,Milestone-1,06/26/2026,,6/26/2026,0,3672.50,Paid,,,,06/30/2026,4,08/19/2026
+MST-02,Maison Safka Technology Company,Maison Safka,July 2026 Performance (ROAS Campaign M2),,Milestone-2,07/08/2026,,7/8/2026,0,7345.00,Paid,,,,07/14/2026,6,08/19/2026
+JSH-05,Justhype,JustHype,July 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,07/08/2026,,7/8/2026,0,3856.13,Paid,,,,07/08/2026,0,08/19/2026
+RTB-05,KITOPI CATERING SERVICES LLC - Right Bite,Right Bite,July 2026 Performance (ROAS Campaign M5),,Milestone-5,07/09/2026,,7/9/2026,0,28920.94,Paid,,,,08/04/2026,26,08/19/2026
+REF-01,Reefi -MT,Reefi,July 2026 Performance (ROAS Campaign M1),New Brand,Milestone-1,07/09/2026,,7/9/2026,0,3672.50,Paid,,,,07/20/2026,11,08/19/2026
+`;
   const res=Papa.parse(csv,{header:true,skipEmptyLines:true});
   ingest(res.data,res.meta.fields,"Sample data (screenshot)","sample");
   // ingest() sets the status bar, so the real reason must be written AFTER it
