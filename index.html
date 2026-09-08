@@ -264,6 +264,30 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 @media (max-width:1100px){ .app{grid-template-columns:1fr} .rail{position:static; height:auto; flex-direction:row; flex-wrap:wrap; overflow:visible} .rail .brand{width:100%} .railsec{display:none} .tiles{grid-template-columns:repeat(3,1fr)} .grid2,.grid2b{grid-template-columns:1fr} .oppcard{grid-template-columns:1fr 1fr} }
 @media (max-width:640px){ .tiles{grid-template-columns:repeat(2,1fr)} .client summary{grid-template-columns:1fr;gap:6px} .main{padding:16px} .oppcard{grid-template-columns:1fr} }
 @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+.custompop{position:absolute; margin-top:6px; background:var(--panel-solid); border:1px solid var(--line-strong); border-radius:12px; box-shadow:var(--shadow-lift); padding:14px; z-index:70; display:none; min-width:220px}
+.custompop.open{display:block}
+.cprow{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+.cprow label{font-size:11px; color:var(--ink-soft); width:38px}
+.cprow .field{flex:1; min-width:0}
+.cmp-pick{display:flex; align-items:flex-end; gap:16px; margin-bottom:20px; flex-wrap:wrap}
+.cmp-side{display:flex; flex-direction:column; gap:5px}
+.cmp-side label{font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-soft)}
+.cmp-side .field{min-width:160px}
+.cmp-vs{font-size:13px; color:var(--ink-faint); padding-bottom:9px; font-weight:600}
+.cmp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:15px}
+.cmp-card{border:1px solid var(--line); border-radius:12px; background:var(--panel-solid); overflow:hidden}
+.cmp-card .ch{padding:12px 16px; font-size:10px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-soft); border-bottom:1px solid var(--line); background:var(--panel2)}
+.cmp-card .cb{padding:16px; display:flex; align-items:center; gap:14px}
+.cmp-col{flex:1; text-align:center}
+.cmp-col .lab{font-size:11px; color:var(--ink-faint); margin-bottom:6px}
+.cmp-col .val{font-size:24px; font-weight:700; letter-spacing:-.6px; color:var(--ink)}
+.cmp-arrow{font-size:20px; color:var(--ink-faint)}
+.cmp-delta{text-align:center; padding:10px 16px 14px; font-size:13px; border-top:1px dashed var(--line)}
+.cmp-delta .up{color:var(--green)} .cmp-delta .down{color:var(--red)}
+.cmp-bars{display:flex; align-items:flex-end; justify-content:center; gap:20px; height:80px; padding:0 16px 8px}
+.cmp-bar{width:46px; border-radius:5px 5px 0 0; position:relative; transition:.3s}
+.cmp-bar.a{background:var(--indigo)} .cmp-bar.b{background:var(--mauve)}
+.cmp-bar .bv{position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:10px; font-weight:600; color:var(--ink)}
 </style>
 </head>
 <body>
@@ -282,6 +306,7 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
     <button class="navitem" data-r="build"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M6 21V9l6-4 6 4v12"/><path d="M10 21v-6h4v6"/></svg>Brand Build</button>
     <button class="navitem" data-r="growth"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Growth</button>
     <button class="navitem" data-r="velocity"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>ROAS Velocity</button>
+    <button class="navitem" data-r="compare"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>Compare Periods</button>
     <button class="navitem" data-r="integration"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg>Integration</button>
     <button class="navitem" data-r="ledger"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M4 9h16M9 5v14"/></svg>Client Ledger</button>
     <div class="railsec">View</div>
@@ -295,7 +320,16 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         <div class="psub" id="pageSub"></div>
       </div>
       <div class="controls">
-        <div class="ctl"><label for="monthSel">Period</label><select id="monthSel" class="field"></select></div>
+        <div class="ctl"><label for="monthSel">Month</label><select id="monthSel" class="field"></select></div>
+        <div class="ctl"><label for="qtrSel">Quarter</label><select id="qtrSel" class="field" style="min-width:104px"></select></div>
+        <div class="ctl"><label for="yearSel">Year</label><select id="yearSel" class="field" style="min-width:92px"></select></div>
+        <div class="ctl"><label>Custom</label><button class="btn" id="customBtn">📅 Range</button>
+          <div id="customPop" class="custompop">
+            <div class="cprow"><label>From</label><input type="date" id="custFrom" class="field"></div>
+            <div class="cprow"><label>To</label><input type="date" id="custTo" class="field"></div>
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="custApply" style="flex:1;border-color:var(--indigo);color:var(--indigo-ink)">Apply</button><button class="btn" id="custClear" style="flex:1">Clear</button></div>
+          </div>
+        </div>
         <div class="ctl"><label for="search">Client</label>
           <div class="search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
@@ -356,11 +390,11 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         </div>
         <div class="wf-slider">
           <div class="wf-slabel"><span><span class="movetag m1">M1 &#8594; M3</span> promote <b id="wfN1">0</b></span><span class="hint" id="wfPool1"></span></div>
-          <input type="range" id="wfRange1" min="0" value="0" step="1" style="width:100%">
+          <input type="range" id="wfRange1" min="0" value="0" step="0.01" style="width:100%">
         </div>
         <div class="wf-slider">
           <div class="wf-slabel"><span><span class="movetag m2">M2 &#8594; M3</span> promote <b id="wfN2">0</b></span><span class="hint" id="wfPool2"></span></div>
-          <input type="range" id="wfRange2" min="0" value="0" step="1" style="width:100%">
+          <input type="range" id="wfRange2" min="0" value="0" step="0.01" style="width:100%">
         </div>
         <svg class="chart" id="wfChart" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="legend">
@@ -379,6 +413,11 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 
     <!-- GROWTH -->
     <section class="report" id="r-growth">
+      <div class="panel">
+        <h3>New-brand acquisition by month</h3>
+        <p class="lede">Brands won each month (dated by first payment received). The number in each bar is the count; hover to see which brands.</p>
+        <svg class="chart" id="acqChart" viewBox="0 0 760 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
       <section class="grid2">
         <div class="panel">
           <h3>Monthly trend</h3>
@@ -392,7 +431,7 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         </div>
         <div class="panel">
           <h3>Acquisition log</h3>
-          <p class="lede">New brands, dated by first paid invoice.</p>
+          <p class="lede">New brands, dated by first payment received.</p>
           <div class="acqlog" id="acqlog"></div>
         </div>
       </section>
@@ -404,6 +443,20 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         <h3>ROAS velocity</h3>
         <p class="lede" id="velSummary"></p>
         <div style="overflow-x:auto"><table id="velTable"></table></div>
+      </div>
+    </section>
+
+    <!-- COMPARE -->
+    <section class="report" id="r-compare">
+      <div class="panel">
+        <h3>Compare periods side by side</h3>
+        <p class="lede">Pick any two periods to compare new-brand acquisition, revenue collected, and ARPA. Both on cash (payment) basis.</p>
+        <div class="cmp-pick">
+          <div class="cmp-side"><label>Period A</label><select id="cmpA" class="field"></select></div>
+          <div class="cmp-vs">vs</div>
+          <div class="cmp-side"><label>Period B</label><select id="cmpB" class="field"></select></div>
+        </div>
+        <div class="cmp-grid" id="cmpGrid"></div>
       </div>
     </section>
 
@@ -521,11 +574,12 @@ function byClient(rows){
     const totalPaid=paid.reduce((s,i)=>s+i.total,0);
     const outstanding=invs.filter(i=>!i.isPaid&&!i.isCancelled).reduce((s,i)=>s+i.total,0);
     const firstPaid=paid.filter(i=>i.invDate).sort((a,b)=>a.invDate-b.invDate)[0]||null;
+    const firstPaidPay=paid.filter(i=>i.payDate).sort((a,b)=>a.payDate-b.payDate)[0]||firstPaid;
     const latestPaid=paid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||null;
     out.push({name,invs,paid,hasPaid:paid.length>0,isNew:invs.some(i=>i.isNew),
       entities:[...new Set(invs.map(i=>i.client).filter(Boolean))],
       level, paidLevel: paidMiles.length?Math.max(...paidMiles):null,
-      totalPaid, outstanding, firstPaid, latestPaid});
+      totalPaid, outstanding, firstPaid, firstPaidPay, latestPaid});
   }
   return out;
 }
@@ -566,25 +620,52 @@ function monthKeysFrom(startISO,endDate){ const s=new Date(startISO), keys=[]; l
   while(y<ey||(y===ey&&m<=em)){ keys.push(y+"-"+String(m+1).padStart(2,"0")); m++; if(m>11){m=0;y++;} } return keys; }
 function revenueForMonth(rows,key){ return rows.filter(r=>r.isPaid&&F.ym(r.payDate)===key).reduce((s,r)=>s+r.total,0); }
 function newBrandAcquisitions(clients){ const out=[];
-  for(const c of clients) if(c.isNew&&c.firstPaid) out.push({name:c.name,month:F.ym(c.firstPaid.invDate),date:c.firstPaid.invDate}); return out; }
+  // acquisition dated by the PAYMENT date of the first paid invoice (cash basis)
+  for(const c of clients){ const fp=c.firstPaidPay||c.firstPaid; const d=fp&&(fp.payDate||fp.invDate); if(c.isNew&&d) out.push({name:c.name,month:F.ym(d),date:d}); } return out; }
 let CACHE={};
 function filteredRows(){ const q=STATE.query; if(!q)return STATE.rows; const ql=q.toLowerCase();
   return STATE.rows.filter(r=> r.brand.toLowerCase().includes(ql)||r.client.toLowerCase().includes(ql)||r.invoice.toLowerCase().startsWith(ql)); }
 
 const PAGE={overview:["Overview & ARPA",""],build:["Brand Build","Push active brands toward the $24K annualised threshold"],
   growth:["Growth","Revenue and new-brand acquisition over time"],velocity:["ROAS Velocity","Milestone progression and drop analysis"],
+  compare:["Compare Periods","Any two periods, side by side"],
   integration:["Integration & Onboarding","Status, integration and churn from the Tracker"],
   ledger:["Client Ledger","Every client, every invoice"]};
 
+
+/* Resolve a period selector string into membership tests + labels.
+   Forms: "ALL" | "Y2026" | "2026-08" (month) | "Q2026-3" (quarter) | "C:2025-10-01:2026-03-31" (custom) */
+function resolvePeriod(sel, today){
+  const monthOf=d=>F.ym(d);
+  if(!sel||sel==="ALL") return {isAll:true, yearSel:null, inSel:()=>true, inPrev:()=>false, label:"Overall", prevLabel:"", end:today};
+  let m;
+  if((m=/^Y(\d{4})$/.exec(sel))){ const y=+m[1];
+    return {isAll:false, yearSel:y, inSel:d=>d&&d.getFullYear()===y, inPrev:d=>d&&d.getFullYear()===y-1,
+      label:String(y), prevLabel:String(y-1), end:new Date(y,11,31)}; }
+  if((m=/^Q(\d{4})-([1-4])$/.exec(sel))){ const y=+m[1],q=+m[2], sM=(q-1)*3;
+    const inQ=(dy,dm,qy,qq)=>dy===qy&&Math.floor(dm/3)+1===qq;
+    const py = q===1? y-1 : y, pq = q===1? 4 : q-1;
+    return {isAll:false, yearSel:null,
+      inSel:d=>d&&inQ(d.getFullYear(),d.getMonth(),y,q),
+      inPrev:d=>d&&inQ(d.getFullYear(),d.getMonth(),py,pq),
+      label:`Q${q} ${y}`, prevLabel:`Q${pq} ${py}`, end:new Date(y,sM+3,0)}; }
+  if((m=/^C:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/.exec(sel))){ const s=new Date(m[1]),e=new Date(m[2]); e.setHours(23,59,59);
+    const span=e-s; const ps=new Date(s-span-86400000), pe=new Date(s-86400000);
+    return {isAll:false, yearSel:null, inSel:d=>d&&d>=s&&d<=e, inPrev:d=>d&&d>=ps&&d<=pe,
+      label:`${F.date(s)}–${F.date(e)}`, prevLabel:"prior range", end:e}; }
+  // month "YYYY-MM"
+  const [y,mm]=sel.split("-").map(Number); const prev=F.ym(new Date(y,mm-2,1));
+  return {isAll:false, yearSel:null, inSel:d=>d&&F.ym(d)===sel, inPrev:d=>d&&F.ym(d)===prev,
+    label:F.ymLabel(sel), prevLabel:F.ymLabel(prev), end:new Date(y,mm,0)};
+}
+
 function render(){
   const rows=filteredRows(), clients=byClient(rows), today=STATE.today, selMonth=STATE.month;
-  const isAll=selMonth==="ALL", yearSel=/^Y(\d{4})$/.test(selMonth)?+selMonth.slice(1):null;
-  const prevMonth=(isAll||yearSel)?null:(()=>{const[y,m]=selMonth.split("-").map(Number);return F.ym(new Date(y,m-2,1));})();
-  const inSel=d=>{ if(!d)return false; if(isAll)return true; if(yearSel)return d.getFullYear()===yearSel; return F.ym(d)===selMonth; };
-  const inPrev=d=>{ if(!d)return false; if(isAll)return false; if(yearSel)return d.getFullYear()===yearSel-1; return F.ym(d)===prevMonth; };
-  const selLabel=isAll?"Overall":yearSel?String(yearSel):F.ymLabel(selMonth);
-  const prevLabel=isAll?"":yearSel?String(yearSel-1):F.ymLabel(prevMonth);
-  const periodEnd=isAll?today:yearSel?new Date(yearSel,11,31):(()=>{const[y,m]=selMonth.split("-").map(Number);return new Date(y,m,0);})();
+  const P=resolvePeriod(selMonth, today);
+  const isAll=P.isAll, yearSel=P.yearSel;
+  const inSel=P.inSel, inPrev=P.inPrev;
+  const selLabel=P.label, prevLabel=P.prevLabel;
+  const periodEnd=P.end;
 
   document.getElementById("vatLbl").textContent=(CONFIG.VAT_RATE*100).toFixed(0);
   document.getElementById("asOf").textContent="Sheet date: "+F.date(today);
@@ -605,11 +686,11 @@ function render(){
   const collectionRate=totalInvoiced?totalPaid/totalInvoiced*100:0;
   const acq=newBrandAcquisitions(clients), acqSel=acq.filter(a=>inSel(a.date)).length, acqPrevN=acq.filter(a=>inPrev(a.date)).length;
   const acqSince=acq.filter(a=>a.date>=new Date(CONFIG.ACQUISITION_START));
-  const asAtRows=rows.filter(r=>!r.invDate||r.invDate<=periodEnd);
+  const asAtRows=rows.filter(r=>{ const d=r.payDate||r.invDate; return !d||d<=periodEnd; });
   const A=computeARPA(byClient(asAtRows));
-  const prevEnd=isAll?null:yearSel?new Date(yearSel-1,11,31):(()=>{const[y,m]=prevMonth.split("-").map(Number);return new Date(y,m,0);})();
-  const APrev=prevEnd?computeARPA(byClient(rows.filter(r=>!r.invDate||r.invDate<=prevEnd))):null;
-  const convWon=clients.filter(c=>c.isNew&&c.hasPaid&&c.firstPaid&&c.firstPaid.invDate>=new Date(CONFIG.CONVERSION_START)&&c.firstPaid.invDate<=periodEnd).length;
+  const prevEnd=isAll?null:P.prevEnd||(()=>{ const e=P.end; return e?new Date(e.getFullYear(), e.getMonth()-(P.yearSel?0:1), e.getDate()):null; })();
+  const APrev=prevEnd?computeARPA(byClient(rows.filter(r=>{ const d=r.payDate||r.invDate; return !d||d<=prevEnd; }))):null;
+  const convWon=clients.filter(c=>{ const fp=c.firstPaidPay||c.firstPaid; const d=fp&&(fp.payDate||fp.invDate); return c.isNew&&c.hasPaid&&d&&d>=new Date(CONFIG.CONVERSION_START)&&d<=periodEnd; }).length;
   const leads=STATE.leads||75, convPct=leads?convWon/leads*100:0;
 
   const tiles=[
@@ -646,8 +727,9 @@ function render(){
   renderLedger(clients);
   renderBrandBuild(A, clients);
   renderIntegration();
+  renderCompare();
   document.getElementById("footnote").innerHTML=
-    `Grouping by Brand Name · status only from Invoice Status · milestones only from ROAS- Milestone · ARPA from $ Amount (paid only, net of ${(CONFIG.VAT_RATE*100).toFixed(0)}% VAT where marked, less refunds) · "today" = ${F.date(today)} from the sheet.`;
+    `Grouping by Brand Name · status only from Invoice Status · milestones only from ROAS- Milestone · ARPA from $ Amount (paid only, net of ${(CONFIG.VAT_RATE*100).toFixed(0)}% VAT where marked, less refunds) · acquisition &amp; revenue on payment (cash) basis · "today" = ${F.date(today)} from the sheet.`;
 }
 
 function animateCounts(){
@@ -659,6 +741,36 @@ function animateCounts(){
     requestAnimationFrame(step);
   });
 }
+
+function renderAcqChart(clients, today){
+  const svg=document.getElementById("acqChart"); if(!svg) return;
+  const keys=monthKeysFrom(CONFIG.ACQUISITION_START, today);
+  const acq=newBrandAcquisitions(clients);
+  const byMonth=keys.map(k=>acq.filter(a=>a.month===k));
+  const counts=byMonth.map(a=>a.length);
+  const W=760,H=260,padL=40,padR=24,padT=22,padB=34, iw=W-padL-padR, ih=H-padT-padB;
+  const maxN=Math.max(...counts,1), bw=iw/keys.length*0.6;
+  const x=i=>padL+iw*(i+0.5)/keys.length, y=v=>padT+ih-(v/maxN)*ih;
+  const lastIdx=keys.length-1;
+  let g="";
+  for(let t=0;t<=maxN && t<=6;t++){ const gy=padT+ih-(t/maxN)*ih; g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--grid)"/>`;
+    if(t%(maxN>5?2:1)===0) g+=`<text x="${padL-6}" y="${gy+3}" text-anchor="end" style="font-size:9px">${t}</text>`; }
+  counts.forEach((v,i)=>{ const h=Math.max(0,(v/maxN)*ih), bx=x(i)-bw/2, by=padT+ih-h, partial=i===lastIdx;
+    g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4" fill="${partial?'url(#gpa)':'url(#gba)'}" data-k="${keys[i]}" data-n="${v}"/>`;
+    if(v>0) g+=`<text x="${x(i)}" y="${by+ (h>18?14:-6)}" text-anchor="middle" style="font-size:11px;font-weight:700" fill="${h>18?'#fff':'var(--ink)'}">${v}</text>`; });
+  const skip=keys.length>10?2:1;
+  keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" style="font-size:9px">${F.ymLabel(k).split(" ")[0]}</text>`; });
+  svg.innerHTML=`<defs><linearGradient id="gba" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--green)"/><stop offset="100%" stop-color="#1c9e6c"/></linearGradient>
+    <pattern id="gpa" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="var(--hatchbg)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--green)" stroke-width="3"/></pattern></defs>`+g;
+  const tt=document.getElementById("tooltip");
+  const nameMap={}; keys.forEach((k,i)=>nameMap[k]=byMonth[i].map(a=>a.name));
+  svg.querySelectorAll(".bar").forEach(b=>{ b.addEventListener("mousemove",e=>{ tt.style.opacity=1;
+      const names=nameMap[b.dataset.k]||[]; const last=b.dataset.k===keys[lastIdx];
+      tt.innerHTML=`<b>${F.ymLabel(b.dataset.k)}${last?" — in progress":""}</b><br>${b.dataset.n} brand${b.dataset.n==1?"":"s"} won${names.length?"<br>"+names.join("<br>"):""}`;
+      tt.style.left=(e.clientX+14)+"px"; tt.style.top=(e.clientY-10)+"px"; });
+    b.addEventListener("mouseleave",()=>tt.style.opacity=0); });
+}
+
 function renderChart(rows,clients,today){
   const svg=document.getElementById("chart"), keys=monthKeysFrom(CONFIG.ACQUISITION_START,today);
   const rev=keys.map(k=>revenueForMonth(rows,k)), acq=newBrandAcquisitions(clients), newB=keys.map(k=>acq.filter(a=>a.month===k).length);
@@ -802,6 +914,53 @@ function renderLedger(clients){
   if(!list.length) el.innerHTML=`<p class="hint">No clients match this filter.</p>`;
 }
 
+
+/* metrics for one period (cash basis): acquisition count, revenue collected, ARPA-as-at */
+function periodMetrics(sel){
+  const P=resolvePeriod(sel, STATE.today);
+  const rows=STATE.rows, clients=byClient(rows);
+  const acq=newBrandAcquisitions(clients).filter(a=>P.inSel(a.date)).length;
+  const rev=rows.filter(r=>r.isPaid && P.inSel(r.payDate)).reduce((s,r)=>s+r.total,0);
+  const asAt=rows.filter(r=>{ const d=r.payDate||r.invDate; return !d||d<=P.end; });
+  const A=computeARPA(byClient(asAt));
+  return {label:P.label, acq, rev, arpa:A.arpa, arpaN:A.n};
+}
+let CMP_WIRED=false;
+function renderCompare(){
+  const selEls=[document.getElementById("cmpA"),document.getElementById("cmpB")]; if(!selEls[0])return;
+  // build options once (months + quarters + years + overall)
+  if(!selEls[0].options.length){
+    const keys=monthKeysFrom(CONFIG.ACQUISITION_START,STATE.today);
+    const yrs=[...new Set(STATE.rows.flatMap(r=>[r.invDate,r.payDate]).filter(Boolean).map(d=>d.getFullYear()))].sort();
+    let opts=`<option value="ALL">Overall</option>`;
+    yrs.forEach(y=>opts+=`<option value="Y${y}">${y}</option>`);
+    yrs.forEach(y=>{for(let q=1;q<=4;q++){const s=new Date(y,(q-1)*3,1); if(s<=STATE.today) opts+=`<option value="Q${y}-${q}">Q${q} ${y}</option>`;}});
+    keys.forEach(k=>opts+=`<option value="${k}">${F.ymLabel(k)}</option>`);
+    selEls.forEach(el=>el.innerHTML=opts);
+    // sensible defaults: same month last year vs this year if available, else first vs last month
+    const cur=F.ym(STATE.today); const ly=(()=>{const[y,m]=cur.split("-");return (y-1)+"-"+m;})();
+    selEls[0].value = keys.includes(ly)?ly:keys[0];
+    selEls[1].value = cur;
+  }
+  if(!CMP_WIRED){ CMP_WIRED=true; selEls.forEach(el=>el.addEventListener("change",renderCompare)); }
+  const A=periodMetrics(selEls[0].value), B=periodMetrics(selEls[1].value);
+  const metrics=[
+    {key:"acq", label:"New brands won", a:A.acq, b:B.acq, fmt:F.int, bar:true},
+    {key:"rev", label:"Revenue collected", a:A.rev, b:B.rev, fmt:v=>F.aed(v), bar:true},
+    {key:"arpa", label:"ARPA (annualised)", a:A.arpa, b:B.arpa, fmt:F.usd, bar:true}
+  ];
+  const pct=(a,b)=> a===0? (b>0?100:0) : (b-a)/a*100;
+  document.getElementById("cmpGrid").innerHTML=metrics.map(mt=>{
+    const p=pct(mt.a,mt.b), up=p>=0, mx=Math.max(mt.a,mt.b,1);
+    const ha=Math.max(3,mt.a/mx*64), hb=Math.max(3,mt.b/mx*64);
+    return `<div class="cmp-card"><div class="ch">${mt.label}</div>
+      <div class="cmp-bars"><div class="cmp-bar a" style="height:${ha}px"><span class="bv">${mt.fmt(mt.a)}</span></div><div class="cmp-bar b" style="height:${hb}px"><span class="bv">${mt.fmt(mt.b)}</span></div></div>
+      <div class="cmp-delta"><span class="${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span> <span class="hint">${A.label} → ${B.label}</span></div></div>`;
+  }).join("");
+  // legend
+  document.getElementById("cmpGrid").insertAdjacentHTML("afterbegin","");
+}
+
 /* ---------- BRAND BUILD ---------- */
 let BB_FILTER=null;
 let BB_PROMOTE1=0;    // M1→M3 count
@@ -832,11 +991,21 @@ function pools(ctx){
   const m2=ctx.m2.slice().sort((a,b)=>b.usd-a.usd);
   return {m1,m2};
 }
-// projected FULL-book average if first n1 M1s and n2 M2s are lifted to the locked M3 value
+// projected FULL-book average if first n1 M1s and n2 M2s are lifted to the locked M3 value.
+// n1/n2 may be fractional: whole part = fully promoted, fractional part = proportional uplift on the next brand.
+function promotedValue(pool, n){
+  // returns a Map name->value for the promotion effect
+  const m=new Map(); const whole=Math.floor(n+1e-9), frac=n-whole;
+  for(let i=0;i<whole && i<pool.length;i++) m.set(pool[i].name, ctx=>ctx.M3VAL);
+  if(frac>0 && whole<pool.length){ const b=pool[whole]; m.set(b.name, ctx=> b.usd + (ctx.M3VAL-b.usd)*frac); }
+  return m;
+}
 function projectedARPA(ctx, n1, n2){
   const {m1,m2}=pools(ctx);
-  const promoteSet=new Set([...m1.slice(0,n1),...m2.slice(0,n2)].map(r=>r.name));
-  const arr=ctx.all.map(r=> promoteSet.has(r.name)? ctx.M3VAL : r.usd);
+  const eff=new Map();
+  const a=promotedValue(m1,n1), b=promotedValue(m2,n2);
+  a.forEach((f,k)=>eff.set(k,f(ctx))); b.forEach((f,k)=>eff.set(k,f(ctx)));
+  const arr=ctx.all.map(r=> eff.has(r.name)? eff.get(r.name) : r.usd);
   return arr.length? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
 }
 
@@ -860,7 +1029,8 @@ function renderBrandBuild(A, clients){
   const r1=document.getElementById("wfRange1"), r2=document.getElementById("wfRange2");
   r1.max=m1.length; if(BB_PROMOTE1>m1.length)BB_PROMOTE1=m1.length; r1.value=BB_PROMOTE1;
   r2.max=m2.length; if(BB_PROMOTE2>m2.length)BB_PROMOTE2=m2.length; r2.value=BB_PROMOTE2;
-  document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2;
+  const fmtN=n=> (Math.abs(n-Math.round(n))<0.01?Math.round(n):n.toFixed(1));
+  document.getElementById("wfN1").textContent=fmtN(BB_PROMOTE1); document.getElementById("wfN2").textContent=fmtN(BB_PROMOTE2);
   document.getElementById("wfPool1").textContent=`${m1.length} at M1`;
   document.getElementById("wfPool2").textContent=`${m2.length} at M2`;
 
@@ -903,7 +1073,7 @@ let BB_WIRED=false;
 function wireBBControls(A, clients){
   if(BB_WIRED) return; BB_WIRED=true;
   const upd=()=>{ const ctx=BB_CTX;
-    document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2; drawWaterfall(ctx); };
+    const f=n=>(Math.abs(n-Math.round(n))<0.01?Math.round(n):n.toFixed(1)); document.getElementById("wfN1").textContent=f(BB_PROMOTE1); document.getElementById("wfN2").textContent=f(BB_PROMOTE2); drawWaterfall(ctx); };
   document.getElementById("wfRange1").addEventListener("input",e=>{ BB_PROMOTE1=+e.target.value; upd(); });
   document.getElementById("wfRange2").addEventListener("input",e=>{ BB_PROMOTE2=+e.target.value; upd(); });
 }
@@ -912,12 +1082,19 @@ function drawWaterfall(ctx){
   const T=ctx.T, svg=document.getElementById("wfChart");
   const {m1,m2}=pools(ctx);
   const cur=projectedARPA(ctx,0,0);
-  // build cumulative steps: M2 promotions first (quick wins), then M1 promotions
-  const seq=[...m2.slice(0,BB_PROMOTE2).map(r=>({r,kind:'m2'})), ...m1.slice(0,BB_PROMOTE1).map(r=>({r,kind:'m1'}))];
+  // steps: each fully-promoted brand is a step; a fractional remainder is a final partial step
+  const seq=[];
+  const wholeM2=Math.floor(BB_PROMOTE2+1e-9), fracM2=BB_PROMOTE2-wholeM2;
+  const wholeM1=Math.floor(BB_PROMOTE1+1e-9), fracM1=BB_PROMOTE1-wholeM1;
+  m2.slice(0,wholeM2).forEach(r=>seq.push({r,kind:'m2',frac:1}));
+  if(fracM2>0.01 && wholeM2<m2.length) seq.push({r:m2[wholeM2],kind:'m2',frac:fracM2});
+  m1.slice(0,wholeM1).forEach(r=>seq.push({r,kind:'m1',frac:1}));
+  if(fracM1>0.01 && wholeM1<m1.length) seq.push({r:m1[wholeM1],kind:'m1',frac:fracM1});
   const steps=[{label:"Now",val:cur,base:0,delta:cur,type:"base"}];
-  let running=cur, i1=0,i2=0;
-  seq.forEach(s=>{ if(s.kind==='m2')i2++; else i1++; const v=projectedARPA(ctx,i1,i2); const d=v-running;
-    steps.push({label:s.r.name,val:v,base:running,delta:d,type:s.kind}); running=v; });
+  let running=cur, i1=0,i2=0, f1=0,f2=0;
+  seq.forEach(s=>{ if(s.kind==='m2'){ if(s.frac===1)i2++; else f2=s.frac; } else { if(s.frac===1)i1++; else f1=s.frac; }
+    const v=projectedARPA(ctx, i1+f1, i2+f2); const d=v-running;
+    steps.push({label:s.label||s.r.name, val:v, base:running, delta:d, type:s.kind, frac:s.frac}); running=v; });
   const finalAvg=running, clears=finalAvg>=T;
   document.getElementById("wfFrom").textContent=F.usd(cur);
   document.getElementById("wfTo").textContent=F.usd(finalAvg);
@@ -1209,11 +1386,30 @@ const SKY=(()=>{
 
 /* ---------- controls / boot ---------- */
 function buildMonthSelector(){
-  const sel=document.getElementById("monthSel"), keys=monthKeysFrom(CONFIG.ACQUISITION_START,STATE.today), cur=F.ym(STATE.today);
+  const keys=monthKeysFrom(CONFIG.ACQUISITION_START,STATE.today), cur=F.ym(STATE.today);
   STATE.months=keys;
   const yrs=[...new Set(STATE.rows.flatMap(r=>[r.invDate,r.payDate]).filter(Boolean).map(d=>d.getFullYear()))].sort();
-  sel.innerHTML=`<option value="ALL">Overall</option>`+yrs.map(y=>`<option value="Y${y}">${y}</option>`).join("")+`<option disabled>──────</option>`+keys.map(k=>`<option value="${k}" ${k===cur?"selected":""}>${F.ymLabel(k)}</option>`).join("");
-  STATE.month=cur; sel.onchange=e=>{STATE.month=e.target.value;render();};
+  // MONTH select (default current). Blank option = "not this filter"
+  const monthSel=document.getElementById("monthSel");
+  monthSel.innerHTML=`<option value="">— Month —</option>`+keys.map(k=>`<option value="${k}" ${k===cur?"selected":""}>${F.ymLabel(k)}</option>`).join("");
+  // QUARTER select
+  const qOpts=[]; yrs.forEach(y=>{ for(let q=1;q<=4;q++){ // only quarters that have started
+    const qStart=new Date(y,(q-1)*3,1); if(qStart<=STATE.today) qOpts.push(`Q${y}-${q}|Q${q} ${String(y).slice(2)}`); } });
+  document.getElementById("qtrSel").innerHTML=`<option value="">— Quarter —</option>`+qOpts.map(o=>{const[v,l]=o.split("|");return `<option value="${v}">${l}</option>`;}).join("");
+  // YEAR select (+ Overall)
+  document.getElementById("yearSel").innerHTML=`<option value="">— Year —</option><option value="ALL">Overall</option>`+yrs.map(y=>`<option value="Y${y}">${y}</option>`).join("");
+  STATE.month=cur;
+  const clearOthers=except=>{ ["monthSel","qtrSel","yearSel"].forEach(id=>{ if(id!==except) document.getElementById(id).value=""; }); document.getElementById("customBtn").classList.remove("active"); };
+  monthSel.onchange=e=>{ if(!e.target.value)return; clearOthers("monthSel"); STATE.month=e.target.value; render(); };
+  document.getElementById("qtrSel").onchange=e=>{ if(!e.target.value)return; clearOthers("qtrSel"); STATE.month=e.target.value; render(); };
+  document.getElementById("yearSel").onchange=e=>{ if(!e.target.value)return; clearOthers("yearSel"); STATE.month=e.target.value; render(); };
+  // custom range
+  const pop=document.getElementById("customPop"), btn=document.getElementById("customBtn");
+  btn.onclick=()=>pop.classList.toggle("open");
+  document.getElementById("custApply").onclick=()=>{ const f=document.getElementById("custFrom").value, t=document.getElementById("custTo").value;
+    if(!f||!t)return; clearOthers(""); STATE.month=`C:${f}:${t}`; btn.classList.add("active"); btn.textContent="📅 "+f+"→"+t; pop.classList.remove("open"); render(); };
+  document.getElementById("custClear").onclick=()=>{ pop.classList.remove("open"); btn.textContent="📅 Range"; btn.classList.remove("active");
+    document.getElementById("monthSel").value=cur; STATE.month=cur; render(); };
 }
 function setupControls(){
   const search=document.getElementById("search"), ta=document.getElementById("typeahead");
@@ -1228,7 +1424,7 @@ function setupControls(){
   document.addEventListener("click",e=>{ if(!e.target.closest(".search-wrap")) ta.classList.remove("open"); });
   document.getElementById("resetBtn").onclick=()=>{ search.value="";STATE.query="";STATE.leads=75;STATE.ledgerFilter="all";STATE.manualDropped=new Set(); applyChurnDrops(); BB_FILTER=null; BB_PROMOTE1=0; BB_PROMOTE2=0;
     document.querySelectorAll("#ledgerFilter button").forEach(b=>b.classList.toggle("on",b.dataset.f==="all"));
-    STATE.month=F.ym(STATE.today); document.getElementById("monthSel").value=STATE.month; render(); };
+    STATE.month=F.ym(STATE.today); const ms=document.getElementById("monthSel"); if(ms){ms.value=STATE.month;} ["qtrSel","yearSel"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";}); const cb=document.getElementById("customBtn"); if(cb){cb.textContent="📅 Range";cb.classList.remove("active");} render(); };
   document.getElementById("ledgerFilter").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
     document.querySelectorAll("#ledgerFilter button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); STATE.ledgerFilter=b.dataset.f; render(); });
   document.getElementById("sampleBtn").onclick=()=>loadSample();
