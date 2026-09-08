@@ -725,6 +725,7 @@ function render(){
     document.getElementById("leadsInput").addEventListener("input",e=>{STATE.leads=parseInt(e.target.value)||0;render();}); }
 
   renderChart(rows,clients,today);
+  renderAcqChart(clients,today);
   renderDataChecks(rows);
   renderAcqLog(acq);
   renderAging(rows,today);
