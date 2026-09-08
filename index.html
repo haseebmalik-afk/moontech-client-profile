@@ -269,25 +269,31 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 .cprow{display:flex; align-items:center; gap:8px; margin-bottom:8px}
 .cprow label{font-size:11px; color:var(--ink-soft); width:38px}
 .cprow .field{flex:1; min-width:0}
-.cmp-pick{display:flex; align-items:flex-end; gap:16px; margin-bottom:20px; flex-wrap:wrap}
-.cmp-side{display:flex; flex-direction:column; gap:5px}
-.cmp-side label{font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-soft)}
-.cmp-side .field{min-width:160px}
-.cmp-vs{font-size:13px; color:var(--ink-faint); padding-bottom:9px; font-weight:600}
-.cmp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:15px}
-.cmp-card{border:1px solid var(--line); border-radius:12px; background:var(--panel-solid); overflow:hidden}
-.cmp-card .ch{padding:12px 16px; font-size:10px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-soft); border-bottom:1px solid var(--line); background:var(--panel2)}
-.cmp-card .cb{padding:16px; display:flex; align-items:center; gap:14px}
-.cmp-col{flex:1; text-align:center}
-.cmp-col .lab{font-size:11px; color:var(--ink-faint); margin-bottom:6px}
-.cmp-col .val{font-size:24px; font-weight:700; letter-spacing:-.6px; color:var(--ink)}
-.cmp-arrow{font-size:20px; color:var(--ink-faint)}
-.cmp-delta{text-align:center; padding:10px 16px 14px; font-size:13px; border-top:1px dashed var(--line)}
-.cmp-delta .up{color:var(--green)} .cmp-delta .down{color:var(--red)}
-.cmp-bars{display:flex; align-items:flex-end; justify-content:center; gap:20px; height:80px; padding:0 16px 8px}
-.cmp-bar{width:46px; border-radius:5px 5px 0 0; position:relative; transition:.3s}
-.cmp-bar.a{background:var(--indigo)} .cmp-bar.b{background:var(--mauve)}
-.cmp-bar .bv{position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:10px; font-weight:600; color:var(--ink)}
+.cmp-pick{display:flex; align-items:flex-end; gap:14px; margin-bottom:22px; flex-wrap:wrap}
+.cmp-side{display:flex; flex-direction:column; gap:6px}
+.cmp-side label{font-size:10px; letter-spacing:1.2px; text-transform:uppercase}
+.cmp-side.a label{color:var(--indigo-ink)} .cmp-side.b label{color:var(--mauve)}
+.cmp-side .field{min-width:150px; font-weight:600}
+.cmp-side.a .field{border-color:var(--indigo)} .cmp-side.b .field{border-color:var(--mauve)}
+.cmp-vs{font-size:12px; color:var(--ink-faint); padding-bottom:10px; font-weight:600; letter-spacing:1px}
+.cmp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+.cmp-card{border:1px solid var(--line); border-radius:14px; background:var(--panel-solid); overflow:hidden; display:flex; flex-direction:column}
+.cmp-card .ch{padding:14px 18px 12px; font-size:10.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-soft); font-weight:600}
+.cmp-body{padding:6px 18px 18px; flex:1}
+.cmp-vals{display:flex; align-items:baseline; gap:10px; margin-bottom:16px}
+.cmp-vals .big{font-size:30px; font-weight:700; letter-spacing:-1px; color:var(--ink)}
+.cmp-vals .from{font-size:14px; color:var(--ink-faint)}
+.cmp-vals .arr{color:var(--ink-faint); font-size:15px}
+.cmp-track{position:relative; height:44px; margin-bottom:6px}
+.cmp-row{display:flex; align-items:center; gap:10px; height:20px; margin-bottom:4px}
+.cmp-row .tag{font-size:10px; width:52px; flex:none; font-weight:600}
+.cmp-row.a .tag{color:var(--indigo-ink)} .cmp-row.b .tag{color:var(--mauve)}
+.cmp-fill{height:14px; border-radius:7px; transition:width .5s cubic-bezier(.2,.8,.2,1); min-width:3px}
+.cmp-row.a .cmp-fill{background:linear-gradient(90deg,var(--indigo),var(--indigo-deep))}
+.cmp-row.b .cmp-fill{background:linear-gradient(90deg,var(--mauve),#8b4a78)}
+.cmp-row .num{font-size:11.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap}
+.cmp-chip{display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:600; padding:5px 11px; border-radius:20px; margin-top:6px}
+.cmp-chip.up{background:var(--green-soft); color:var(--green)} .cmp-chip.down{background:var(--red-soft); color:var(--red)} .cmp-chip.flat{background:var(--indigo-soft); color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -390,11 +396,11 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         </div>
         <div class="wf-slider">
           <div class="wf-slabel"><span><span class="movetag m1">M1 &#8594; M3</span> promote <b id="wfN1">0</b></span><span class="hint" id="wfPool1"></span></div>
-          <input type="range" id="wfRange1" min="0" value="0" step="0.01" style="width:100%">
+          <input type="range" id="wfRange1" min="0" value="0" step="1" style="width:100%">
         </div>
         <div class="wf-slider">
           <div class="wf-slabel"><span><span class="movetag m2">M2 &#8594; M3</span> promote <b id="wfN2">0</b></span><span class="hint" id="wfPool2"></span></div>
-          <input type="range" id="wfRange2" min="0" value="0" step="0.01" style="width:100%">
+          <input type="range" id="wfRange2" min="0" value="0" step="1" style="width:100%">
         </div>
         <svg class="chart" id="wfChart" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet"></svg>
         <div class="legend">
@@ -452,9 +458,9 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         <h3>Compare periods side by side</h3>
         <p class="lede">Pick any two periods to compare new-brand acquisition, revenue collected, and ARPA. Both on cash (payment) basis.</p>
         <div class="cmp-pick">
-          <div class="cmp-side"><label>Period A</label><select id="cmpA" class="field"></select></div>
+          <div class="cmp-side a"><label>Period A</label><select id="cmpA" class="field"></select></div>
           <div class="cmp-vs">vs</div>
-          <div class="cmp-side"><label>Period B</label><select id="cmpB" class="field"></select></div>
+          <div class="cmp-side b"><label>Period B</label><select id="cmpB" class="field"></select></div>
         </div>
         <div class="cmp-grid" id="cmpGrid"></div>
       </div>
@@ -951,14 +957,22 @@ function renderCompare(){
   ];
   const pct=(a,b)=> a===0? (b>0?100:0) : (b-a)/a*100;
   document.getElementById("cmpGrid").innerHTML=metrics.map(mt=>{
-    const p=pct(mt.a,mt.b), up=p>=0, mx=Math.max(mt.a,mt.b,1);
-    const ha=Math.max(3,mt.a/mx*64), hb=Math.max(3,mt.b/mx*64);
-    return `<div class="cmp-card"><div class="ch">${mt.label}</div>
-      <div class="cmp-bars"><div class="cmp-bar a" style="height:${ha}px"><span class="bv">${mt.fmt(mt.a)}</span></div><div class="cmp-bar b" style="height:${hb}px"><span class="bv">${mt.fmt(mt.b)}</span></div></div>
-      <div class="cmp-delta"><span class="${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span> <span class="hint">${A.label} → ${B.label}</span></div></div>`;
+    const p=pct(mt.a,mt.b), up=p>0, flat=Math.abs(p)<0.05, mx=Math.max(mt.a,mt.b,1);
+    const wa=Math.max(3,mt.a/mx*100), wb=Math.max(3,mt.b/mx*100);
+    const chip = flat?`<span class="cmp-chip flat">no change</span>`
+      : `<span class="cmp-chip ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`;
+    return `<div class="cmp-card">
+      <div class="ch">${mt.label}</div>
+      <div class="cmp-body">
+        <div class="cmp-vals"><span class="from">${mt.fmt(mt.a)}</span><span class="arr">→</span><span class="big">${mt.fmt(mt.b)}</span></div>
+        <div class="cmp-track">
+          <div class="cmp-row a"><span class="tag">${A.label}</span><div class="cmp-fill" style="width:${wa}%"></div><span class="num">${mt.fmt(mt.a)}</span></div>
+          <div class="cmp-row b"><span class="tag">${B.label}</span><div class="cmp-fill" style="width:${wb}%"></div><span class="num">${mt.fmt(mt.b)}</span></div>
+        </div>
+        ${chip}
+      </div>
+    </div>`;
   }).join("");
-  // legend
-  document.getElementById("cmpGrid").insertAdjacentHTML("afterbegin","");
 }
 
 /* ---------- BRAND BUILD ---------- */
@@ -991,21 +1005,11 @@ function pools(ctx){
   const m2=ctx.m2.slice().sort((a,b)=>b.usd-a.usd);
   return {m1,m2};
 }
-// projected FULL-book average if first n1 M1s and n2 M2s are lifted to the locked M3 value.
-// n1/n2 may be fractional: whole part = fully promoted, fractional part = proportional uplift on the next brand.
-function promotedValue(pool, n){
-  // returns a Map name->value for the promotion effect
-  const m=new Map(); const whole=Math.floor(n+1e-9), frac=n-whole;
-  for(let i=0;i<whole && i<pool.length;i++) m.set(pool[i].name, ctx=>ctx.M3VAL);
-  if(frac>0 && whole<pool.length){ const b=pool[whole]; m.set(b.name, ctx=> b.usd + (ctx.M3VAL-b.usd)*frac); }
-  return m;
-}
+// projected FULL-book average if first n1 M1s and n2 M2s are lifted to the locked $36k M3 value
 function projectedARPA(ctx, n1, n2){
   const {m1,m2}=pools(ctx);
-  const eff=new Map();
-  const a=promotedValue(m1,n1), b=promotedValue(m2,n2);
-  a.forEach((f,k)=>eff.set(k,f(ctx))); b.forEach((f,k)=>eff.set(k,f(ctx)));
-  const arr=ctx.all.map(r=> eff.has(r.name)? eff.get(r.name) : r.usd);
+  const promote=new Set([...m1.slice(0,n1),...m2.slice(0,n2)].map(r=>r.name));
+  const arr=ctx.all.map(r=> promote.has(r.name)? ctx.M3VAL : r.usd);
   return arr.length? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
 }
 
@@ -1029,8 +1033,7 @@ function renderBrandBuild(A, clients){
   const r1=document.getElementById("wfRange1"), r2=document.getElementById("wfRange2");
   r1.max=m1.length; if(BB_PROMOTE1>m1.length)BB_PROMOTE1=m1.length; r1.value=BB_PROMOTE1;
   r2.max=m2.length; if(BB_PROMOTE2>m2.length)BB_PROMOTE2=m2.length; r2.value=BB_PROMOTE2;
-  const fmtN=n=> (Math.abs(n-Math.round(n))<0.01?Math.round(n):n.toFixed(1));
-  document.getElementById("wfN1").textContent=fmtN(BB_PROMOTE1); document.getElementById("wfN2").textContent=fmtN(BB_PROMOTE2);
+  document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2;
   document.getElementById("wfPool1").textContent=`${m1.length} at M1`;
   document.getElementById("wfPool2").textContent=`${m2.length} at M2`;
 
@@ -1073,7 +1076,7 @@ let BB_WIRED=false;
 function wireBBControls(A, clients){
   if(BB_WIRED) return; BB_WIRED=true;
   const upd=()=>{ const ctx=BB_CTX;
-    const f=n=>(Math.abs(n-Math.round(n))<0.01?Math.round(n):n.toFixed(1)); document.getElementById("wfN1").textContent=f(BB_PROMOTE1); document.getElementById("wfN2").textContent=f(BB_PROMOTE2); drawWaterfall(ctx); };
+    document.getElementById("wfN1").textContent=BB_PROMOTE1; document.getElementById("wfN2").textContent=BB_PROMOTE2; drawWaterfall(ctx); };
   document.getElementById("wfRange1").addEventListener("input",e=>{ BB_PROMOTE1=+e.target.value; upd(); });
   document.getElementById("wfRange2").addEventListener("input",e=>{ BB_PROMOTE2=+e.target.value; upd(); });
 }
@@ -1082,19 +1085,12 @@ function drawWaterfall(ctx){
   const T=ctx.T, svg=document.getElementById("wfChart");
   const {m1,m2}=pools(ctx);
   const cur=projectedARPA(ctx,0,0);
-  // steps: each fully-promoted brand is a step; a fractional remainder is a final partial step
-  const seq=[];
-  const wholeM2=Math.floor(BB_PROMOTE2+1e-9), fracM2=BB_PROMOTE2-wholeM2;
-  const wholeM1=Math.floor(BB_PROMOTE1+1e-9), fracM1=BB_PROMOTE1-wholeM1;
-  m2.slice(0,wholeM2).forEach(r=>seq.push({r,kind:'m2',frac:1}));
-  if(fracM2>0.01 && wholeM2<m2.length) seq.push({r:m2[wholeM2],kind:'m2',frac:fracM2});
-  m1.slice(0,wholeM1).forEach(r=>seq.push({r,kind:'m1',frac:1}));
-  if(fracM1>0.01 && wholeM1<m1.length) seq.push({r:m1[wholeM1],kind:'m1',frac:fracM1});
+  // one step per promoted brand: M2 first (quick wins), then M1
+  const seq=[...m2.slice(0,BB_PROMOTE2).map(r=>({r,kind:'m2'})), ...m1.slice(0,BB_PROMOTE1).map(r=>({r,kind:'m1'}))];
   const steps=[{label:"Now",val:cur,base:0,delta:cur,type:"base"}];
-  let running=cur, i1=0,i2=0, f1=0,f2=0;
-  seq.forEach(s=>{ if(s.kind==='m2'){ if(s.frac===1)i2++; else f2=s.frac; } else { if(s.frac===1)i1++; else f1=s.frac; }
-    const v=projectedARPA(ctx, i1+f1, i2+f2); const d=v-running;
-    steps.push({label:s.label||s.r.name, val:v, base:running, delta:d, type:s.kind, frac:s.frac}); running=v; });
+  let running=cur, i1=0,i2=0;
+  seq.forEach(s=>{ if(s.kind==='m2')i2++; else i1++; const v=projectedARPA(ctx,i1,i2); const d=v-running;
+    steps.push({label:s.r.name,val:v,base:running,delta:d,type:s.kind}); running=v; });
   const finalAvg=running, clears=finalAvg>=T;
   document.getElementById("wfFrom").textContent=F.usd(cur);
   document.getElementById("wfTo").textContent=F.usd(finalAvg);
@@ -1346,6 +1342,8 @@ function setupNav(){
     document.querySelectorAll(".report").forEach(s=>s.classList.toggle("on",s.id==="r-"+r));
     document.getElementById("pageTitle").innerHTML=PAGE[r][0];
     document.getElementById("pageSub").textContent=PAGE[r][1];
+    // charts measured 0 while hidden — redraw the now-visible report
+    if(STATE.rows&&STATE.rows.length) render();
   }));
 }
 function setTheme(t){ document.documentElement.dataset.theme=t;
