@@ -141,7 +141,7 @@ input.field::placeholder{color:var(--ink-faint)}
 
 /* ---------- panels ---------- */
 .grid2{display:grid; grid-template-columns:1.6fr 1fr; gap:15px; margin-top:15px}
-.grid2b{display:grid; grid-template-columns:1.3fr 1fr; gap:15px; margin-top:15px}
+.grid2b{display:grid; grid-template-columns:1.45fr 1fr; gap:15px; margin-top:15px}
 .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; min-width:0}
 .panel h3{font-size:11px; letter-spacing:1.3px; text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px; font-weight:600}
 .panel .lede{font-size:12px; color:var(--ink-faint); margin:0 0 15px}
@@ -207,7 +207,8 @@ tbody tr:hover{background:var(--indigo-soft)}
 .cbody table{font-size:12px}
 .hint{font-size:11px; color:var(--ink-faint)}
 .mono{font-variant-numeric:tabular-nums; letter-spacing:-.1px}
-.arpa-work{margin-top:14px; border-top:1px solid var(--line); padding-top:14px}
+.arpa-work{margin-top:14px; border-top:1px solid var(--line); padding-top:14px; overflow-x:auto}
+.arpa-work table{min-width:640px}
 .dropbtn{font:inherit; font-size:11px; padding:4px 10px; border-radius:8px; cursor:pointer; border:1px solid var(--line-strong); background:transparent; color:var(--ink-soft); transition:.15s; white-space:nowrap}
 .dropbtn:hover{border-color:var(--red); color:var(--red)}
 .dropbtn.on{background:var(--red-soft); border-color:var(--red); color:var(--red)}
@@ -258,6 +259,7 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 ::-webkit-scrollbar{width:9px;height:9px}
 ::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:6px}
 ::-webkit-scrollbar-track{background:transparent}
+@media (max-width:1500px){ .grid2b{grid-template-columns:1fr} }
 @media (max-width:1400px){ .tiles{grid-template-columns:repeat(4,1fr)} .bb-head{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:1100px){ .app{grid-template-columns:1fr} .rail{position:static; height:auto; flex-direction:row; flex-wrap:wrap; overflow:visible} .rail .brand{width:100%} .railsec{display:none} .tiles{grid-template-columns:repeat(3,1fr)} .grid2,.grid2b{grid-template-columns:1fr} .oppcard{grid-template-columns:1fr 1fr} }
 @media (max-width:640px){ .tiles{grid-template-columns:repeat(2,1fr)} .client summary{grid-template-columns:1fr;gap:6px} .main{padding:16px} .oppcard{grid-template-columns:1fr} }
