@@ -433,7 +433,7 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         <div class="panel">
           <h3>Monthly trend</h3>
           <p class="lede">Revenue collected each month (bars, AED) vs new brands won (line).</p>
-          <svg class="chart" id="chart" viewBox="0 0 760 270" preserveAspectRatio="xMidYMid meet"></svg>
+          <svg class="chart" id="chart" viewBox="0 0 760 286" preserveAspectRatio="xMidYMid meet"></svg>
           <div class="legend">
             <span><i style="background:var(--indigo)"></i>Revenue collected (AED)</span>
             <span><span class="dotl" style="background:var(--green)"></span>New brands won</span>
@@ -804,7 +804,7 @@ function renderAcqChart(clients, today){
 function renderChart(rows,clients,today){
   const svg=document.getElementById("chart"), keys=monthKeysFrom(CONFIG.ACQUISITION_START,today);
   const rev=keys.map(k=>revenueForMonth(rows,k)), acq=newBrandAcquisitions(clients), newB=keys.map(k=>acq.filter(a=>a.month===k).length);
-  const W=760,H=270,padL=54,padR=30,padT=28,padB=34, iw=W-padL-padR, ih=H-padT-padB;
+  const W=760,H=286,padL=54,padR=30,padT=40,padB=34, iw=W-padL-padR, ih=H-padT-padB;
   const maxRev=Math.max(...rev,1), maxN=Math.max(...newB,1), bw=iw/keys.length*0.56;
   const x=i=>padL+iw*(i+0.5)/keys.length, yN=v=>padT+ih-(v/maxN)*ih;
   let g="";
@@ -813,25 +813,26 @@ function renderChart(rows,clients,today){
     g+=`<text x="${padL-8}" y="${gy+3}" text-anchor="end">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`; }
   const lastIdx=keys.length-1;
   rev.forEach((v,i)=>{ const h=Math.max(0,(v/maxRev)*ih),bx=x(i)-bw/2,by=padT+ih-h, partial=i===lastIdx, sel=keys[i]===STATE.month;
-    g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4" fill="${partial?'url(#gp)':'url(#gb)'}" ${sel?'stroke="var(--seldot)" stroke-width="1.5"':''} data-k="${keys[i]}" data-rev="${v}" data-nb="${newB[i]}" data-partial="${partial?1:0}"/>`; });
+    const prev=i>0?rev[i-1]:null; const mom = (prev==null)?"" : (prev? ((v-prev)/prev*100) : (v>0?100:null));
+    g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4" fill="${partial?'url(#gp)':'url(#gb)'}" ${sel?'stroke="var(--seldot)" stroke-width="1.5"':''} data-k="${keys[i]}" data-rev="${v}" data-nb="${newB[i]}" data-partial="${partial?1:0}" data-mom="${mom===""||mom===null?"":mom.toFixed(0)}"/>`; });
   const skip=keys.length>10?2:1;
   keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" ${k===STATE.month?'fill="var(--seldot)"':''}>${F.ymLabel(k).split(" ")[0]}</text>`; });
-  g+=`<text x="${x(lastIdx)}" y="${padT-4}" text-anchor="middle" font-size="8.5">to date</text>`;
+  g+=`<text x="${x(lastIdx)}" y="14" text-anchor="middle" font-size="8.5" fill="var(--ink-faint)">to date</text>`;
+  // MoM revenue % in a dedicated top row (y=26) — never overlaps bars/line
+  rev.forEach((v,i)=>{ if(i===0) return; const prev=rev[i-1]; if(!prev && !v) return;
+    const p = prev? (v-prev)/prev*100 : (v>0?100:0); const up=p>=0;
+    g+=`<text x="${x(i)}" y="26" text-anchor="middle" style="font-size:9.5px;font-weight:700" fill="${up?'#34d399':'#fb7185'}">${up?'+':''}${p.toFixed(0)}%</text>`; });
   let path=""; newB.forEach((v,i)=>{ if(i<lastIdx) path+=(i?"L":"M")+x(i)+" "+yN(v)+" "; });
   g+=`<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linejoin="round"/>`;
   if(lastIdx>0) g+=`<path d="M${x(lastIdx-1)} ${yN(newB[lastIdx-1])} L${x(lastIdx)} ${yN(newB[lastIdx])}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-dasharray="4 3" opacity=".65"/>`;
   newB.forEach((v,i)=>{ g+=`<circle cx="${x(i)}" cy="${yN(v)}" r="3.6" fill="var(--panel-solid)" stroke="var(--green)" stroke-width="2" class="bar" data-k="${keys[i]}" data-rev="${rev[i]}" data-nb="${v}" data-partial="${i===lastIdx?1:0}"/>`; });
-  // revenue month-over-month % above each revenue bar (green up / red down)
-  rev.forEach((v,i)=>{ if(i===0) return; const prev=rev[i-1]; if(!prev && !v) return;
-    const p = prev? (v-prev)/prev*100 : (v>0?100:0);
-    const up=p>=0; const txt=(up?'+':'')+p.toFixed(0)+'%';
-    const barTop = padT+ih - Math.max(0,(v/maxRev)*ih);   // top of this month's revenue bar
-    g+=`<text x="${x(i)}" y="${Math.max(padT+9, barTop-8)}" text-anchor="middle" style="font-size:10px;font-weight:700;paint-order:stroke;stroke:var(--panel-solid);stroke-width:3px;stroke-linejoin:round" fill="${up?'var(--green)':'var(--red)'}">${txt}</text>`; });
   svg.innerHTML=`<defs><linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--indigo)"/><stop offset="100%" stop-color="var(--indigo-deep)"/></linearGradient>
     <pattern id="gp" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="var(--hatchbg)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--hatchfg)" stroke-width="3"/></pattern></defs>`+g;
   const tt=document.getElementById("tooltip");
   svg.querySelectorAll(".bar").forEach(el=>{ el.addEventListener("mousemove",e=>{ tt.style.opacity=1;
-      tt.innerHTML=`<b>${F.ymLabel(el.dataset.k)}</b>${el.dataset.partial==="1"?" — month to date":""}<br>${F.aed(+el.dataset.rev)} collected<br>${el.dataset.nb} new brand${el.dataset.nb==1?"":"s"}`;
+      const mom=el.dataset.mom; const momLine = mom===""||mom===undefined ? "" :
+        `<br><span style="color:${+mom>=0?'#34d399':'#fb7185'}">${+mom>=0?'▲ +':'▼ '}${mom}% vs last month</span>`;
+      tt.innerHTML=`<b>${F.ymLabel(el.dataset.k)}</b>${el.dataset.partial==="1"?" — month to date":""}<br>${F.aed(+el.dataset.rev)} collected${momLine}<br>${el.dataset.nb} new brand${el.dataset.nb==1?"":"s"}`;
       tt.style.left=(e.clientX+14)+"px"; tt.style.top=(e.clientY-10)+"px"; });
     el.addEventListener("mouseleave",()=>tt.style.opacity=0); });
 }
