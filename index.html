@@ -423,6 +423,11 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         <h3>New-brand acquisition by month</h3>
         <p class="lede">Brands won each month (dated by first payment received). The number in each bar is the count; hover to see which brands.</p>
         <svg class="chart" id="acqChart" viewBox="0 0 760 260" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend">
+          <span><i style="background:#FF9F2E"></i>Brands won (bars)</span>
+          <span><span class="dotl" style="background:var(--indigo-ink)"></span>Trend</span>
+          <span style="color:var(--ink-faint)">Hover a bar for brand names</span>
+        </div>
       </div>
       <section class="grid2">
         <div class="panel">
@@ -763,12 +768,30 @@ function renderAcqChart(clients, today){
   for(let t=0;t<=maxN && t<=6;t++){ const gy=padT+ih-(t/maxN)*ih; g+=`<line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="var(--grid)"/>`;
     if(t%(maxN>5?2:1)===0) g+=`<text x="${padL-6}" y="${gy+3}" text-anchor="end" style="font-size:9px">${t}</text>`; }
   counts.forEach((v,i)=>{ const h=Math.max(0,(v/maxN)*ih), bx=x(i)-bw/2, by=padT+ih-h, partial=i===lastIdx;
-    g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4" fill="${partial?'url(#gpa)':'url(#gba)'}" data-k="${keys[i]}" data-n="${v}"/>`;
-    if(v>0) g+=`<text x="${x(i)}" y="${by+ (h>18?14:-6)}" text-anchor="middle" style="font-size:11px;font-weight:700" fill="${h>18?'#fff':'var(--ink)'}">${v}</text>`; });
+    if(v>0){
+      // each bar gets a slightly different orange gradient so they read as a fading set, not one flat colour
+      const gid="og"+i;
+      const top = i%2? "#ffb454" : "#ff9f2e";
+      const bot = i%3===0? "#f97316" : "#ef6a1a";
+      g+=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${top}"/><stop offset="100%" stop-color="${bot}"/></linearGradient></defs>`;
+      g+=`<rect class="bar" x="${bx}" y="${by}" width="${bw}" height="${h}" rx="4" fill="url(#${gid})" data-k="${keys[i]}" data-n="${v}"/>`;
+      const inside=h>22;
+      g+=`<text x="${x(i)}" y="${inside?by+16:by-7}" text-anchor="middle" style="font-size:13px;font-weight:800;paint-order:stroke;stroke:rgba(60,25,0,.35);stroke-width:2.5px" fill="#ffffff">${v}</text>`;
+    } else {
+      // zero month (e.g. current month with no signings yet): baseline tick + a faint "0"
+      const baseY=padT+ih;
+      g+=`<rect x="${bx}" y="${baseY-2}" width="${bw}" height="2" rx="1" fill="var(--ink-faint)" opacity=".5" data-k="${keys[i]}" data-n="0" class="bar"/>`;
+      g+=`<text x="${x(i)}" y="${baseY-7}" text-anchor="middle" style="font-size:11px;font-weight:700" fill="var(--ink-faint)">0</text>`;
+    }
+  });
+  // trend line over the bars (same per-month series) for at-a-glance direction
+  let lp=""; counts.forEach((v,i)=>{ lp+=(i?"L":"M")+x(i)+" "+y(v)+" "; });
+  g+=`<path d="${lp}" fill="none" stroke="var(--indigo-ink)" stroke-width="2.2" stroke-linejoin="round" opacity=".95"/>`;
+  counts.forEach((v,i)=>{ g+=`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="var(--panel-solid)" stroke="var(--indigo-ink)" stroke-width="2"/>`; });
   const skip=keys.length>10?2:1;
   keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" style="font-size:9px">${F.ymLabel(k).split(" ")[0]}</text>`; });
-  svg.innerHTML=`<defs><linearGradient id="gba" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--green)"/><stop offset="100%" stop-color="#1c9e6c"/></linearGradient>
-    <pattern id="gpa" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="var(--hatchbg)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--green)" stroke-width="3"/></pattern></defs>`+g;
+  svg.innerHTML=`<defs><linearGradient id="gba" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFB84D"/><stop offset="55%" stop-color="#FF9F2E"/><stop offset="100%" stop-color="#E67300"/></linearGradient>
+    <pattern id="gpa" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="var(--hatchbg)"/><line x1="0" y1="0" x2="0" y2="6" stroke="#FF9F2E" stroke-width="3"/></pattern></defs>`+g;
   const tt=document.getElementById("tooltip");
   const nameMap={}; keys.forEach((k,i)=>nameMap[k]=byMonth[i].map(a=>a.name));
   svg.querySelectorAll(".bar").forEach(b=>{ b.addEventListener("mousemove",e=>{ tt.style.opacity=1;
