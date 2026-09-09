@@ -818,10 +818,11 @@ function renderChart(rows,clients,today){
   const skip=keys.length>10?2:1;
   keys.forEach((k,i)=>{ if(i%skip===0||i===lastIdx) g+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" ${k===STATE.month?'fill="var(--seldot)"':''}>${F.ymLabel(k).split(" ")[0]}</text>`; });
   g+=`<text x="${x(lastIdx)}" y="14" text-anchor="middle" font-size="8.5" fill="var(--ink-faint)">to date</text>`;
-  // MoM revenue % in a dedicated top row (y=26) — never overlaps bars/line
-  rev.forEach((v,i)=>{ if(i===0) return; const prev=rev[i-1]; if(!prev && !v) return;
+  // MoM revenue % in a dedicated top row (y=26) — never overlaps bars/line.
+  // Skip the current (partial) month. Colour via inline style so the .chart text CSS can't override it.
+  rev.forEach((v,i)=>{ if(i===0 || i===lastIdx) return; const prev=rev[i-1]; if(!prev && !v) return;
     const p = prev? (v-prev)/prev*100 : (v>0?100:0); const up=p>=0;
-    g+=`<text x="${x(i)}" y="26" text-anchor="middle" style="font-size:9.5px;font-weight:700" fill="${up?'#34d399':'#fb7185'}">${up?'+':''}${p.toFixed(0)}%</text>`; });
+    g+=`<text x="${x(i)}" y="26" text-anchor="middle" style="font-size:9.5px;font-weight:700;fill:${up?'#34d399':'#fb7185'}">${up?'+':''}${p.toFixed(0)}%</text>`; });
   let path=""; newB.forEach((v,i)=>{ if(i<lastIdx) path+=(i?"L":"M")+x(i)+" "+yN(v)+" "; });
   g+=`<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linejoin="round"/>`;
   if(lastIdx>0) g+=`<path d="M${x(lastIdx-1)} ${yN(newB[lastIdx-1])} L${x(lastIdx)} ${yN(newB[lastIdx])}" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-dasharray="4 3" opacity=".65"/>`;
