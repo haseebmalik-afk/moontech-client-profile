@@ -387,9 +387,7 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
     </div>
 
     <div class="dbar">
-      <span class="dot" id="srcDot"></span><span id="srcMsg">Loading…</span>
-      <span class="grow">
-        <span id="asOf" class="hint"></span>
+      <span class="grow" style="margin-left:0">
         <label class="btn" for="fileInput">Upload CSV</label>
         <input type="file" id="fileInput" accept=".csv">
         <button class="btn" id="sampleBtn">Sample</button>
@@ -551,6 +549,10 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
       </div>
     </section>
 
+    <div class="dbar" style="margin-top:20px">
+      <span class="dot" id="srcDot"></span><span id="srcMsg">Loading…</span>
+      <span class="grow"><span id="asOf" class="hint"></span></span>
+    </div>
     <div class="footnote" id="footnote"></div>
   </main>
 </div>
