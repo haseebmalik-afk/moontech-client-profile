@@ -294,6 +294,34 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 .cmp-row .num{font-size:11.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap}
 .cmp-chip{display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:600; padding:5px 11px; border-radius:20px; margin-top:6px}
 .cmp-chip.up{background:var(--green-soft); color:var(--green)} .cmp-chip.down{background:var(--red-soft); color:var(--red)} .cmp-chip.flat{background:var(--indigo-soft); color:var(--ink-soft)}
+
+.ladder{font-size:12px; min-width:1100px}
+.ladder th{padding:8px 8px; font-size:9.5px}
+.ladder td{padding:7px 8px; white-space:nowrap}
+.ladder .lb-client{display:flex; align-items:center; gap:9px}
+.lb-av{width:26px;height:26px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;letter-spacing:.3px}
+.lb-name{font-weight:600;color:var(--ink);line-height:1.15}
+.lb-since{font-size:10px;color:var(--ink-faint)}
+.lb-lvl{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;color:#fff;padding:3px 8px;border-radius:7px;position:relative}
+.lb-pend{color:var(--amber);font-size:9px;font-weight:700;margin-left:5px;vertical-align:super}
+.lb-cell{text-align:center;font-variant-numeric:tabular-nums}
+.lb-paid{display:inline-block;padding:3px 8px;border-radius:7px;font-weight:600}
+.lb-big{background:var(--indigo);color:#fff}
+.lb-small{background:var(--indigo-soft);color:var(--indigo-ink)}
+.lb-pendcell{display:inline-block;padding:2px 7px;border-radius:7px;font-weight:600;border:1px dashed var(--amber);color:var(--amber);background:var(--amber-soft);position:relative}
+.lb-pendcell::after{content:"unpaid";position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:7.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--amber);font-weight:700}
+.ladder td.rt{text-align:right;font-variant-numeric:tabular-nums}
+.ladder .lb-total{font-weight:700;color:var(--ink)}
+.ladder .lb-arpa{font-weight:700;color:var(--indigo-ink)}
+.ladder tr.dropped td{opacity:.55}
+.lb-tier{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 6px;border-radius:5px;margin-top:3px;text-transform:uppercase}
+.lb-tier.t1{background:rgba(255,159,46,.16);color:var(--orange)}
+.lb-tier.t2{background:var(--indigo-soft);color:var(--indigo-ink)}
+.lb-tier.t3{background:rgba(53,214,147,.16);color:var(--green)}
+.lb-tier.tx{background:var(--panel2);color:var(--ink-faint)}
+.lb-grouphdr td{background:var(--panel2);font-weight:700;color:var(--ink);font-size:11px;letter-spacing:.5px;padding:9px 10px;text-transform:uppercase}
+.lb-grouphdr .cnt{color:var(--ink-faint);font-weight:600;margin-left:8px}
+
 </style>
 </head>
 <body>
@@ -419,6 +447,18 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 
     <!-- GROWTH -->
     <section class="report" id="r-growth">
+      <div class="panel">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div><h3 style="margin:0">ROAS Client Ladder <span class="hint" style="text-transform:none;letter-spacing:0">— spend by month, $</span></h3>
+          <p class="lede" style="margin:4px 0 0">Every ROAS brand on the M1–M5 ladder, grouped by client tier. Month-by-month paid spend (by payment date), annualised ARPA and health. Pending = invoiced, not yet paid.</p></div>
+          <div class="seg" id="ladderSort">
+            <button data-s="tier" class="on">By tier</button>
+            <button data-s="arpa">By ARPA</button>
+            <button data-s="level">By level</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;margin-top:14px"><table id="ladderTable" class="ladder"></table></div>
+      </div>
       <div class="panel">
         <h3>New-brand acquisition by month</h3>
         <p class="lede">Brands won each month (dated by first payment received). The number in each bar is the count; hover to see which brands.</p>
@@ -730,6 +770,7 @@ function render(){
     document.getElementById("leadsInput").addEventListener("input",e=>{STATE.leads=parseInt(e.target.value)||0;render();}); }
 
   renderChart(rows,clients,today);
+  renderLadder(clients,today);
   renderAcqChart(clients,today);
   renderDataChecks(rows);
   renderAcqLog(acq);
@@ -752,6 +793,108 @@ function animateCounts(){
       el.textContent=Math.round(val).toLocaleString("en-US"); if(p<1)requestAnimationFrame(step); };
     requestAnimationFrame(step);
   });
+}
+
+
+/* ============ ROAS CLIENT LADDER ============ */
+let LADDER_SORT='tier';
+
+function tierClass(t){ if(!t) return 'tx'; const s=String(t).toLowerCase();
+  if(/dragon|1|gold|platinum|tier 1|premium/.test(s)) return 't1';   // top tier
+  if(/eagle|2|silver|tier 2/.test(s)) return 't2';                   // mid tier
+  if(/kiwi|3|bronze|tier 3/.test(s)) return 't3';                    // entry tier
+  return 'tx'; }
+function tierRank(t){ const c=tierClass(t); return c==='t1'?0:c==='t2'?1:c==='t3'?2:9; }
+function brandTier(name){ const t=(STATE.tracker||[]).find(r=>normBrand(r.brand)===normBrand(name)); return t&&t.tier?t.tier:''; }
+const LVL_COLORS={1:'#a99bff',2:'#8b7fff',3:'#6c5cff',4:'#4a3fd6',5:'#3a2fb0'};
+function ladderAvatarColor(name){ const palette=['#6c5cff','#cf87bd','#35d693','#FF9F2E','#f87a6e','#4a3fd6','#3aa0d6']; let h=0; for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0; return palette[h%palette.length]; }
+function ladderInitials(name){ const w=name.replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/); return ((w[0]||'')[0]||'')+((w[1]||'')[0]||''); }
+
+function renderLadder(clients, today){
+  const el=document.getElementById("ladderTable"); if(!el) return;
+  const inc=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
+  const isInc=n=>inc.includes(String(n).toLowerCase());
+  // ladder brands: has a paid ROAS milestone OR on include list
+  const ladder=clients.filter(c=> c.hasPaid && (c.paidLevel || isInc(c.name)));
+  // month columns Nov-25 .. current
+  const keys=monthKeysFrom("2025-11-01", today);
+
+  const rows=ladder.map(c=>{
+    const dropped=STATE.dropped.has(c.name);
+    const roasPaid=c.paid.filter(i=>i.mile);
+    // net $ per invoice
+    const netOf=i=>usdNet(i);
+    // ---- ARPA (exact spec) ----
+    let arpa, basis, totalToDate;
+    if(dropped){ const base=c.paidLevel?roasPaid:c.paid; totalToDate=base.reduce((s,i)=>s+netOf(i),0); arpa=totalToDate; basis="Dropped · total to date"; }
+    else if(!c.paidLevel){ totalToDate=c.paid.reduce((s,i)=>s+netOf(i),0); arpa=totalToDate; basis="Spend to date (CPL)"; }
+    else if(c.paidLevel<=2){ totalToDate=roasPaid.reduce((s,i)=>s+netOf(i),0); arpa=totalToDate; basis="ROAS spend to date"; }
+    else { totalToDate=roasPaid.reduce((s,i)=>s+netOf(i),0);
+      const latest=roasPaid.filter(i=>i.payDate).sort((a,b)=>b.payDate-a.payDate)[0]||roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0];
+      arpa=(latest?netOf(latest):0)*12; basis="Latest paid × 12"; }
+    // ---- monthly grid: PAID invoices by payment month ----
+    const monthly={}; roasPaid.forEach(i=>{ if(i.payDate){ const k=F.ym(i.payDate); monthly[k]=(monthly[k]||0)+netOf(i); } });
+    const maxMonthly=Math.max(0,...Object.values(monthly));
+    // ---- pending: unpaid (unconfirmed, not cancelled) milestone invoices, in their INVOICE month ----
+    const pendingInvs=c.invs.filter(i=>!i.isPaid && !i.isCancelled && i.mile && i.invDate);
+    const pending={}; let pendLevel=null;
+    pendingInvs.forEach(i=>{ const k=F.ym(i.invDate); pending[k]=(pending[k]||0)+netOf(i); if(!pendLevel||i.mile>pendLevel) pendLevel=i.mile; });
+    // level: highest PAID; superscript if an unpaid higher milestone exists
+    const lvl=c.paidLevel||0;
+    const showPend = pendLevel && pendLevel>lvl ? pendLevel : null;
+    // start month + months active (payment basis)
+    const fp=c.firstPaidPay||c.firstPaid; const startYM=fp?F.ym(fp.payDate||fp.invDate):null;
+    const monthsActive= fp ? ((today.getFullYear()-new Date(fp.payDate||fp.invDate).getFullYear())*12 + (today.getMonth()-new Date(fp.payDate||fp.invDate).getMonth())+1) : 0;
+    // ramp: days between consecutive milestone PAYMENTS
+    const at=n=>roasPaid.filter(i=>i.mile===n && i.payDate).sort((a,b)=>a.payDate-b.payDate)[0];
+    const ramp=(a,b)=>{ const x=at(a),y=at(b); return (x&&y)? Math.round((y.payDate-x.payDate)/86400000/30.4) : null; };
+    const status=modelStatus(c, dropped, today);
+    return {name:c.name, lvl, showPend, startYM, monthsActive, monthly, maxMonthly, pending, totalToDate, arpa, basis,
+      r12:ramp(1,2), r23:ramp(2,3), r34:ramp(3,4), status, dropped, tier:brandTier(c.name)};
+  });
+
+  const stC={Active:['green'],Scaling:['grey'],Watch:['amber'],'At risk':['red'],Inactive:['grey'],'Too early':['grey'],Dropped:['red']};
+  const mo=n=> n==null?'–': n===0?'0mo': n+'mo';
+  const cell=(v,isMax)=> v?`<span class="lb-paid ${isMax?'lb-big':'lb-small'}">${Math.round(v).toLocaleString()}</span>`:'';
+  const pcell=v=>`<span class="lb-pendcell">${Math.round(v).toLocaleString()}</span>`;
+
+  const NCOL=6+keys.length+3;
+  const rowHTML=r=>`<tr class="${r.dropped?'dropped':''}">
+      <td><div class="lb-client"><span class="lb-av" style="background:${ladderAvatarColor(r.name)}">${ladderInitials(r.name)}</span>
+        <span><span class="lb-name">${r.name}</span>${r.tier?`<span class="lb-tier ${tierClass(r.tier)}">${r.tier}</span>`:''}<br><span class="lb-since">since ${r.startYM||'—'}</span></span></div></td>
+      <td class="lb-cell">${r.monthsActive||'–'}</td>
+      <td><span class="lb-lvl" style="background:${LVL_COLORS[r.lvl]||'#888'}">M${r.lvl||'–'}</span>${r.showPend?`<span class="lb-pend">M${r.showPend} pending</span>`:''}</td>
+      <td class="lb-cell">${mo(r.r12)}</td><td class="lb-cell">${mo(r.r23)}</td><td class="lb-cell">${mo(r.r34)}</td>
+      ${keys.map(k=>{ const paid=r.monthly[k], pend=r.pending[k];
+        return `<td class="lb-cell">${paid?cell(paid,paid===r.maxMonthly&&paid>0):''}${pend?(paid?' ':'')+pcell(pend):''}</td>`; }).join("")}
+      <td class="rt lb-total">$${Math.round(r.totalToDate).toLocaleString()}</td>
+      <td class="rt lb-arpa">$${Math.round(r.arpa).toLocaleString()}</td>
+      <td><span class="pill ${(stC[r.status]||['grey'])[0]}">${r.status}</span></td>
+    </tr>`;
+
+  const head=`<thead><tr>
+      <th>Client</th><th>Mo.</th><th>Level</th><th>1→2</th><th>2→3</th><th>3→4</th>
+      ${keys.map(k=>`<th style="text-align:center">${F.ymLabel(k).toUpperCase()}</th>`).join("")}
+      <th style="text-align:right">Total</th><th style="text-align:right">ARPA</th><th>Status</th></tr></thead>`;
+
+  let body="";
+  if(LADDER_SORT==='arpa'){ body=[...rows].sort((a,b)=>b.arpa-a.arpa).map(rowHTML).join(""); }
+  else if(LADDER_SORT==='level'){ body=[...rows].sort((a,b)=> (b.lvl||0)-(a.lvl||0) || b.arpa-a.arpa).map(rowHTML).join(""); }
+  else { // by tier: group, tiers ordered, each group's rows by ARPA desc
+    const groups={}; rows.forEach(r=>{ const t=r.tier||"Untiered"; (groups[t]=groups[t]||[]).push(r); });
+    const order=Object.keys(groups).sort((a,b)=> tierRank(a)-tierRank(b)||a.localeCompare(b));
+    order.forEach(t=>{ const g=groups[t].sort((a,b)=>b.arpa-a.arpa);
+      const gArpa=g.reduce((s,r)=>s+r.arpa,0)/g.length;
+      body+=`<tr class="lb-grouphdr"><td colspan="${NCOL}">${t} <span class="cnt">· ${g.length} brand${g.length===1?'':'s'} · avg ARPA $${Math.round(gArpa).toLocaleString()}</span></td></tr>`;
+      body+=g.map(rowHTML).join(""); });
+  }
+  el.innerHTML=head+`<tbody>${body}</tbody>`;
+
+  // wire the sort toggle once
+  const seg=document.getElementById("ladderSort");
+  if(seg && !seg.dataset.wired){ seg.dataset.wired="1";
+    seg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
+      seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b)); LADDER_SORT=b.dataset.s; renderLadder(clients,today); }); }
 }
 
 function renderAcqChart(clients, today){
