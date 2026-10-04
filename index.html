@@ -691,7 +691,8 @@ function computeARPA(clients){
     if(!c.paidLevel){ usd=c.paid.reduce((s,i)=>s+usdNet(i),0); basis="Spend to date (CPL — included)"; }
     else if(c.paidLevel<=2){ usd=roasPaid.reduce((s,i)=>s+usdNet(i),0); basis="ROAS spend to date"; }
     else if(dropped){ const yr=STATE.today.getFullYear();
-      const ytd=roasPaid.filter(i=>i.invDate&&i.invDate.getFullYear()===yr);
+      // YTD on CASH basis: by payment date (fallback invoice date)
+      const ytd=roasPaid.filter(i=>{ const d=i.payDate||i.invDate; return d&&d.getFullYear()===yr; });
       usd=(ytd.length?ytd:roasPaid).reduce((s,i)=>s+usdNet(i),0); basis="Dropped · YTD spend"; }
     else { latest=roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0]||c.latestPaid;
       usd=(latest?usdNet(latest):0)*12; basis="Latest paid × 12"; }
@@ -1467,7 +1468,8 @@ function modelStatus(c, dropped, today){
   if(!paidMi.length) return "Too early";
   const firstRoas=paidMi[0];               // ROAS journey starts at first paid ROAS invoice
   const lastInv=paidMi[paidMi.length-1].invDate;
-  const monthsActive=(today.getFullYear()-firstRoas.invDate.getFullYear())*12+(today.getMonth()-firstRoas.invDate.getMonth())+1;
+  const fr0=firstRoas.payDate||firstRoas.invDate;
+  const monthsActive=(today.getFullYear()-fr0.getFullYear())*12+(today.getMonth()-fr0.getMonth())+1;
   const daysSinceLast=Math.floor((today-lastInv)/86400000);
   const lvl=c.paidLevel||0;
   // climbing: reached a higher level within the last ~60d
@@ -1494,11 +1496,13 @@ function buildModelRows(){
     // ROAS export: Start = first paid ROAS invoice (not influencer/CPL). Fall back to first paid only if no ROAS.
     const firstRoas=paidMi[0] || c.firstPaid;
     const startLabel=firstRoas?F.ymLabel(F.ym(firstRoas.invDate)):"—";
-    const monthsActive=firstRoas?((today.getFullYear()-firstRoas.invDate.getFullYear())*12+(today.getMonth()-firstRoas.invDate.getMonth())+1):0;
+    const fr1=firstRoas?(firstRoas.payDate||firstRoas.invDate):null;
+    const monthsActive=fr1?((today.getFullYear()-fr1.getFullYear())*12+(today.getMonth()-fr1.getMonth())+1):0;
     const lvl=c.paidLevel||0;
     // months at current level
     const firstAtLvl=paidMi.filter(i=>i.mile===lvl)[0];
-    const moAtLevel=firstAtLvl?((today.getFullYear()-firstAtLvl.invDate.getFullYear())*12+(today.getMonth()-firstAtLvl.invDate.getMonth())+1):0;
+    const fa=firstAtLvl?(firstAtLvl.payDate||firstAtLvl.invDate):null;
+    const moAtLevel=fa?((today.getFullYear()-fa.getFullYear())*12+(today.getMonth()-fa.getMonth())+1):0;
     // ramp: days between milestone payments (pay date pref, else invoice)
     const dOf=i=>i.payDate||i.invDate;
     const at=n=>paidMi.find(i=>i.mile===n);
