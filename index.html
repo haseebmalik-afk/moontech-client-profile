@@ -333,6 +333,15 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 [data-theme="light"] .ladder .pill.amber{color:#fff}
 [data-theme="light"] .ladder .pill.red{color:#fff}
 [data-theme="light"] .ladder .pill.grey{color:#fff}
+
+/* status shades: lighter green (Active) + lighter red (Inactive) */
+.ladder .pill.greenlt{background:color-mix(in srgb, var(--green) 45%, var(--panel-solid));color:var(--ink)}
+.ladder .pill.redlt{background:color-mix(in srgb, var(--red) 42%, var(--panel-solid));color:var(--ink)}
+[data-theme="light"] .ladder .pill.greenlt{background:color-mix(in srgb, var(--green) 55%, #fff);color:#0a3d26}
+[data-theme="light"] .ladder .pill.redlt{background:color-mix(in srgb, var(--red) 50%, #fff);color:#5a1611}
+.ladder-wrap{position:relative}
+.ladder thead th{position:sticky;top:0;z-index:5;background:var(--panel-solid);box-shadow:0 1px 0 var(--line-strong)}
+.ladder thead th:first-child{left:0;z-index:6}
 </style>
 </head>
 <body>
@@ -356,6 +365,7 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
     <button class="navitem" data-r="ledger"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M4 9h16M9 5v14"/></svg>Client Ledger</button>
     <div class="railsec">View</div>
     <button class="navitem" id="themeItem"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg><span id="themeLbl">Light mode</span></button>
+    <button class="navitem" id="ccyItem"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span id="ccyLbl">Show in USD</span></button>
   </aside>
 
   <main class="main">
@@ -460,13 +470,19 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div><h3 style="margin:0">ROAS Client Ladder <span class="hint" style="text-transform:none;letter-spacing:0">— spend by month, $</span></h3>
           <p class="lede" style="margin:4px 0 0">Every ROAS brand on the M1–M5 ladder, grouped by client tier. Month-by-month paid spend (by payment date), annualised ARPA and health. Pending = invoiced, not yet paid.</p></div>
-          <div class="seg" id="ladderSort">
-            <button data-s="tier" class="on">By tier</button>
-            <button data-s="arpa">By ARPA</button>
-            <button data-s="level">By level</button>
+          <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+            <select id="ladderLvl" class="field" style="min-width:92px;height:32px">
+              <option value="all">All levels</option>
+              <option value="5">M5</option><option value="4">M4</option><option value="3">M3</option><option value="2">M2</option><option value="1">M1</option>
+            </select>
+            <div class="seg" id="ladderSort">
+              <button data-s="tier" class="on">By tier</button>
+              <button data-s="arpa">By ARPA</button>
+              <button data-s="level">By level</button>
+            </div>
           </div>
         </div>
-        <div style="overflow-x:auto;margin-top:14px"><table id="ladderTable" class="ladder"></table></div>
+        <div class="ladder-wrap" style="overflow:auto;max-height:70vh;margin-top:14px"><table id="ladderTable" class="ladder"></table></div>
       </div>
       <div class="panel">
         <h3>New-brand acquisition by month</h3>
@@ -559,8 +575,12 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 <div class="tt" id="tooltip"></div>
 <script>
 const F = {
-  aed:n=>"AED "+Math.round(n||0).toLocaleString("en-US"),
+  // AED formatter is currency-aware: in USD mode, AED values convert to $ at the peg.
+  aed:n=>{ n=n||0; if((STATE.ccy||"AED")==="USD") return "$"+Math.round(n/CONFIG.AED_PER_USD).toLocaleString("en-US"); return "AED "+Math.round(n).toLocaleString("en-US"); },
+  // usd() = already-USD numbers (ARPA etc.) — never re-converted, always $.
   usd:n=>"$"+Math.round(n||0).toLocaleString("en-US"),
+  // currency label for tile "cur" fields that were hardcoded "AED"
+  ccyLbl:()=> (STATE.ccy||"AED")==="USD"?"$":"AED",
   int:n=>(n||0).toLocaleString("en-US"),
   pct:n=>(n>=0?"+":"")+n.toFixed(1)+"%",
   date:d=>d?String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0")+"/"+d.getFullYear():"—",
@@ -587,7 +607,7 @@ const HKEYS={
 function buildMap(h){ const map={}, H=h.map(norm);
   for(const k in HKEYS) for(const c of HKEYS[k]){ const i=H.indexOf(norm(c)); if(i>=0){map[k]=h[i];break;} } return map; }
 
-let STATE={ rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", dropped:new Set(), manualDropped:new Set(), tracker:[], churnedBrands:new Set(), unmatchedChurn:[] };
+let STATE={ rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", ccy:"AED", dropped:new Set(), manualDropped:new Set(), tracker:[], churnedBrands:new Set(), unmatchedChurn:[] };
 
 /* USD value of one invoice for ARPA: $ Amount (or AED/peg), net of VAT-included, net of refund. */
 function usdNet(i){
@@ -758,13 +778,11 @@ function render(){
   const leads=STATE.leads||75, convPct=leads?convWon/leads*100:0;
 
   const tiles=[
-    {cls:"mint",h:"Revenue collected",cur:"AED",key:"rev",v:rev,
-      sub:isAll?`${F.int(cashSel.length)} receipts all-time`:`${chip(rev,revPrev)||`<span class="chip">no ${prevLabel} base</span>`} · ${F.aed(revPrev)}`},
-    {cls:"sky",h:"Total invoiced",cur:"AED",key:"inv",v:totalInvoiced,
+    {cls:"sky",h:"Total invoiced",cur:F.ccyLbl(),money:1,key:"inv",v:totalInvoiced,
       sub:!invoicedRows.length?`nothing billed in ${selLabel}`:isAll?`${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled`:`${F.int(invoicedRows.length)} invoices · ${collectionRate.toFixed(0)}% settled ${chip(totalInvoiced,invoicedPrev)||""}`},
-    {cls:"lilac",h:"Total paid",cur:"AED",key:"paid",v:totalPaid,sub:!invoicedRows.length?`—`:`${F.int(paidRows.length)} settled ${chip(totalPaid,paidPrev)||""}`},
-    {cls:"rose",h:"Total unpaid",cur:"AED",key:"unpaid",v:totalUnpaid,sub:!invoicedRows.length?`—`:`${F.int(unpaidRows.length)} open · ${F.int(overdueCount)} overdue ${chip(totalUnpaid,unpaidPrev)||""}`},
-    {cls:"cream",h:"Total cancelled",cur:"AED",key:"canc",v:totalCanc,sub:!billSel.length?`—`:`${F.int(cancRows.length)} cancelled ${chip(totalCanc,cancPrev)||""}`},
+    {cls:"lilac",h:"Total paid",cur:F.ccyLbl(),money:1,key:"paid",v:totalPaid,sub:!invoicedRows.length?`—`:`${F.int(paidRows.length)} settled ${chip(totalPaid,paidPrev)||""}`},
+    {cls:"rose",h:"Total unpaid",cur:F.ccyLbl(),money:1,key:"unpaid",v:totalUnpaid,sub:!invoicedRows.length?`—`:`${F.int(unpaidRows.length)} open · ${F.int(overdueCount)} overdue ${chip(totalUnpaid,unpaidPrev)||""}`},
+    {cls:"cream",h:"Total cancelled",cur:F.ccyLbl(),money:1,key:"canc",v:totalCanc,sub:!billSel.length?`—`:`${F.int(cancRows.length)} cancelled ${chip(totalCanc,cancPrev)||""}`},
     {cls:"lilac",h:"New brands won",cur:"",key:"nb",v:acqSel,int:true,
       sub:isAll?`${acqSince.length} since Oct '25`:`${chip(acqSel,acqPrevN)||`<span class="chip">${acqPrevN} in ${prevLabel}</span>`} · ${acqSince.length} since Oct '25`},
     {cls:"pink",h:"ARPA · annualised",cur:"$",key:"arpa",v:A.arpa,hero:true,
@@ -775,7 +793,7 @@ function render(){
     :`${selLabel}. Revenue = cash collected (payment date). Invoiced/paid/unpaid/cancelled = billed in period (invoice date). ARPA as at ${F.date(periodEnd>today?today:periodEnd)}, USD net of VAT and refunds.`;
   document.getElementById("tiles").innerHTML=tiles.map(t=>`
     <div class="tile ${t.cls} ${t.hero?'hero':''}"><div class="h">${t.h}</div>
-      <div class="v">${t.cur?`<span class="cur">${t.cur}</span>`:""}<span class="num" data-count="${t.v}" data-int="${t.int?1:0}" data-key="${t.key}">0</span></div>
+      <div class="v">${t.cur?`<span class="cur">${t.cur}</span>`:""}<span class="num" data-count="${t.money&&STATE.ccy==='USD'? (t.v/CONFIG.AED_PER_USD) : t.v}" data-int="${t.int?1:0}" data-key="${t.key}">0</span></div>
       <div class="s">${t.sub}</div></div>`).join("");
   animateCounts();
   const convInline=document.getElementById("convInline");
@@ -783,7 +801,7 @@ function render(){
     document.getElementById("leadsInput").addEventListener("input",e=>{STATE.leads=parseInt(e.target.value)||0;render();}); }
 
   renderChart(rows,clients,today);
-  renderLadder(clients,today);
+  renderLadder(clients,today,P);
   renderAcqChart(clients,today);
   renderDataChecks(rows);
   renderAcqLog(acq);
@@ -811,6 +829,7 @@ function animateCounts(){
 
 /* ============ ROAS CLIENT LADDER ============ */
 let LADDER_SORT='tier';
+let LADDER_LVL='all';
 let LADDER_LAST=null;
 
 function tierClass(t){ if(!t) return 'tx'; const s=String(t).toLowerCase();
@@ -824,14 +843,17 @@ const LVL_COLORS={1:'#a99bff',2:'#8b7fff',3:'#6c5cff',4:'#4a3fd6',5:'#3a2fb0'};
 function ladderAvatarColor(name){ const palette=['#6c5cff','#cf87bd','#35d693','#FF9F2E','#f87a6e','#4a3fd6','#3aa0d6']; let h=0; for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0; return palette[h%palette.length]; }
 function ladderInitials(name){ const w=name.replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/); return ((w[0]||'')[0]||'')+((w[1]||'')[0]||''); }
 
-function renderLadder(clients, today){
+function renderLadder(clients, today, P){
   const el=document.getElementById("ladderTable"); if(!el) return;
   const inc=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
   const isInc=n=>inc.includes(String(n).toLowerCase());
   // ladder brands: has a paid ROAS milestone OR on include list
-  const ladder=clients.filter(c=> c.hasPaid && (c.paidLevel || isInc(c.name)));
-  // month columns Nov-25 .. current
-  const keys=monthKeysFrom("2025-11-01", today);
+  let ladder=clients.filter(c=> c.hasPaid && (c.paidLevel || isInc(c.name)));
+  if(LADDER_LVL!=='all'){ const L=+LADDER_LVL; ladder=ladder.filter(c=> (c.paidLevel||(isInc(c.name)?1:0))===L); }
+  // month columns Nov-25 .. period end (defaults today). Period filter limits the grid.
+  const pEnd = (P&&P.end)?P.end:today;
+  const keys=monthKeysFrom("2025-11-01", pEnd>today?today:pEnd);
+  const inPeriod = (P&&P.inSel)? P.inSel : (()=>true);
 
   const rows=ladder.map(c=>{
     const dropped=STATE.dropped.has(c.name);
@@ -869,7 +891,7 @@ function renderLadder(clients, today){
       r12:ramp(1,2), r23:ramp(2,3), r34:ramp(3,4), status, dropped, tier:brandTier(c.name)};
   });
 
-  const stC={Active:['green'],Scaling:['grey'],Watch:['amber'],'At risk':['red'],Inactive:['grey'],'Too early':['grey'],Dropped:['red']};
+  const stC={Scaling:['green'],Active:['greenlt'],Watch:['amber'],Inactive:['redlt'],Dropped:['grey'],'At risk':['red'],'Too early':['grey']};
   const mo=n=> n==null?'–': n===0?'0mo': n+'mo';
   const cell=(v,isMax)=> v?`<span class="lb-paid ${isMax?'lb-big':'lb-small'}">${Math.round(v).toLocaleString()}</span>`:'';
   const pcell=v=>`<span class="lb-pendcell">${Math.round(v).toLocaleString()}</span>`;
@@ -907,12 +929,15 @@ function renderLadder(clients, today){
   el.innerHTML=head+`<tbody>${body}</tbody>`;
 
   // wire the sort toggle once
-  LADDER_LAST={clients,today};   // remember latest data for the toggle
+  LADDER_LAST={clients,today,P};   // remember latest data for the toggle
+  const lvlSel=document.getElementById("ladderLvl");
+  if(lvlSel && !lvlSel.dataset.wired){ lvlSel.dataset.wired="1"; lvlSel.value=LADDER_LVL;
+    lvlSel.addEventListener("change",e=>{ LADDER_LVL=e.target.value; if(LADDER_LAST) renderLadder(LADDER_LAST.clients, LADDER_LAST.today, LADDER_LAST.P); }); }
   const seg=document.getElementById("ladderSort");
   if(seg && !seg.dataset.wired){ seg.dataset.wired="1";
     seg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
       seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b)); LADDER_SORT=b.dataset.s;
-      if(LADDER_LAST) renderLadder(LADDER_LAST.clients, LADDER_LAST.today); }); }
+      if(LADDER_LAST) renderLadder(LADDER_LAST.clients, LADDER_LAST.today, LADDER_LAST.P); }); }
 }
 
 function renderAcqChart(clients, today){
@@ -1541,7 +1566,9 @@ function setupNav(){
 }
 function setTheme(t){ document.documentElement.dataset.theme=t;
   document.getElementById("themeLbl").textContent=t==="dark"?"Light mode":"Dark mode"; }
-function setupTheme(){ document.getElementById("themeItem").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"); }
+function setupTheme(){ document.getElementById("ccyItem").onclick=()=>{ STATE.ccy = STATE.ccy==="USD"?"AED":"USD";
+    document.getElementById("ccyLbl").textContent = STATE.ccy==="USD"?"Show in AED":"Show in USD"; render(); };
+  document.getElementById("themeItem").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"); }
 
 /* fireflies (dark) + shooting stars (light), behind everything */
 const SKY=(()=>{
