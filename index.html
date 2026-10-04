@@ -850,10 +850,12 @@ function renderLadder(clients, today, P){
   // ladder brands: has a paid ROAS milestone OR on include list
   let ladder=clients.filter(c=> c.hasPaid && (c.paidLevel || isInc(c.name)));
   if(LADDER_LVL!=='all'){ const L=+LADDER_LVL; ladder=ladder.filter(c=> (c.paidLevel||(isInc(c.name)?1:0))===L); }
-  // month columns Nov-25 .. period end (defaults today). Period filter limits the grid.
-  const pEnd = (P&&P.end)?P.end:today;
-  const keys=monthKeysFrom("2025-11-01", pEnd>today?today:pEnd);
+  // month columns: Overall -> Nov-25..today; a period -> only that period's months.
+  const isAllP = !P || P.isAll;
+  const pEnd = (P&&P.end && P.end<today)? P.end : today;
   const inPeriod = (P&&P.inSel)? P.inSel : (()=>true);
+  let keys = monthKeysFrom("2025-11-01", pEnd);
+  if(!isAllP){ keys = keys.filter(k=>{ const [y,m]=k.split("-").map(Number); return inPeriod(new Date(y,m-1,15)); }); }
 
   const rows=ladder.map(c=>{
     const dropped=STATE.dropped.has(c.name);
@@ -868,8 +870,9 @@ function renderLadder(clients, today, P){
     else { totalToDate=roasPaid.reduce((s,i)=>s+netOf(i),0);
       const latest=roasPaid.filter(i=>i.payDate).sort((a,b)=>b.payDate-a.payDate)[0]||roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0];
       arpa=(latest?netOf(latest):0)*12; basis="Latest paid × 12"; }
-    // ---- monthly grid: PAID invoices by payment month ----
-    const monthly={}; roasPaid.forEach(i=>{ if(i.payDate){ const k=F.ym(i.payDate); monthly[k]=(monthly[k]||0)+netOf(i); } });
+    // ---- monthly grid: PAID invoices by payment month (only in-period when a period is set) ----
+    const monthly={}; let periodSpend=0;
+    roasPaid.forEach(i=>{ if(i.payDate && (isAllP || inPeriod(i.payDate))){ const k=F.ym(i.payDate); monthly[k]=(monthly[k]||0)+netOf(i); periodSpend+=netOf(i); } });
     const maxMonthly=Math.max(0,...Object.values(monthly));
     // ---- pending: unpaid (unconfirmed, not cancelled) milestone invoices, in their INVOICE month ----
     const pendingInvs=c.invs.filter(i=>!i.isPaid && !i.isCancelled && i.mile && i.invDate);
@@ -887,9 +890,10 @@ function renderLadder(clients, today, P){
     const ramp=(a,b)=>{ const x=at(a),y=at(b); return (x&&y)? Math.round((y.payDate-x.payDate)/86400000/30.4) : null; };
     let status=modelStatus(c, dropped, today);
     if(isCplInc && !dropped && status==="Too early" && monthsActive>1){ status = monthsActive<=2?"Watch":"Active"; }
-    return {name:c.name, lvl, showPend, startYM, monthsActive, monthly, maxMonthly, pending, totalToDate, arpa, basis,
+    const totalShown = isAllP ? totalToDate : periodSpend;
+    return {name:c.name, lvl, showPend, startYM, monthsActive, monthly, maxMonthly, pending, totalToDate, totalShown, periodSpend, arpa, basis, isAllP,
       r12:ramp(1,2), r23:ramp(2,3), r34:ramp(3,4), status, dropped, tier:brandTier(c.name)};
-  });
+  }).filter(r=> r.isAllP || r.periodSpend>0 );   // hide brands with no spend in the selected period
 
   const stC={Scaling:['green'],Active:['greenlt'],Watch:['amber'],Inactive:['redlt'],Dropped:['grey'],'At risk':['red'],'Too early':['grey']};
   const mo=n=> n==null?'–': n===0?'0mo': n+'mo';
@@ -905,7 +909,7 @@ function renderLadder(clients, today, P){
       <td class="lb-cell">${mo(r.r12)}</td><td class="lb-cell">${mo(r.r23)}</td><td class="lb-cell">${mo(r.r34)}</td>
       ${keys.map(k=>{ const paid=r.monthly[k], pend=r.pending[k];
         return `<td class="lb-cell">${paid?cell(paid,paid===r.maxMonthly&&paid>0):''}${pend?(paid?' ':'')+pcell(pend):''}</td>`; }).join("")}
-      <td class="rt lb-total">$${Math.round(r.totalToDate).toLocaleString()}</td>
+      <td class="rt lb-total">$${Math.round(r.totalShown).toLocaleString()}</td>
       <td class="rt lb-arpa">$${Math.round(r.arpa).toLocaleString()}</td>
       <td><span class="pill ${(stC[r.status]||['grey'])[0]}">${r.status}</span></td>
     </tr>`;
