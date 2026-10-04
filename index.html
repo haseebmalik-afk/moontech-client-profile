@@ -12,7 +12,11 @@ const CONFIG = {
   VAT_RATE: 0.05,
   ARPA_TARGET: 24000,               // annualised $ per brand — the Brand Build goal
   M3_MONTHLY: 3000,                 // M3 milestone invoice = $3,000/mo -> annualised on promotion
-  ARPA_INCLUDE_BRANDS: ["Jetour"],  // approved non-ROAS anomalies counted in ARPA
+  ARPA_INCLUDE_BRANDS: ["Jetour"],
+  // One-off acquisition exceptions: a brand that genuinely returned as a NEW ROAS client.
+  // Each entry adds an extra acquisition on the given month (YYYY-MM), on top of its original.
+  // Not a repeatable rule — just explicit, approved re-acquisitions.
+  REACQUIRED: [ { brand:"JustHype", month:"2026-07" } ],  // approved non-ROAS anomalies counted in ARPA
   BRAND_OVERRIDES: { "elite cars": "Jetour" },
   ACQUISITION_START: "2025-10-01",
   CONVERSION_START:  "2026-02-01",
@@ -705,7 +709,14 @@ function monthKeysFrom(startISO,endDate){ const s=new Date(startISO), keys=[]; l
 function revenueForMonth(rows,key){ return rows.filter(r=>r.isPaid&&F.ym(r.payDate)===key).reduce((s,r)=>s+r.total,0); }
 function newBrandAcquisitions(clients){ const out=[];
   // acquisition dated by the PAYMENT date of the first paid invoice (cash basis)
-  for(const c of clients){ const fp=c.firstPaidPay||c.firstPaid; const d=fp&&(fp.payDate||fp.invDate); if(c.isNew&&d) out.push({name:c.name,month:F.ym(d),date:d}); } return out; }
+  for(const c of clients){ const fp=c.firstPaidPay||c.firstPaid; const d=fp&&(fp.payDate||fp.invDate); if(c.isNew&&d) out.push({name:c.name,month:F.ym(d),date:d}); }
+  // one-off approved re-acquisitions (e.g. a brand that returned as a new ROAS client)
+  (CONFIG.REACQUIRED||[]).forEach(x=>{
+    const nb=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,"");
+    const c=clients.find(cl=>nb(cl.name)===nb(x.brand));
+    if(c){ const [y,m]=x.month.split("-").map(Number); out.push({name:c.name, month:x.month, date:new Date(y,m-1,15), reacquired:true}); }
+  });
+  return out; }
 let CACHE={};
 function filteredRows(){ const q=STATE.query; if(!q)return STATE.rows; const ql=q.toLowerCase();
   return STATE.rows.filter(r=> r.brand.toLowerCase().includes(ql)||r.client.toLowerCase().includes(ql)||r.invoice.toLowerCase().startsWith(ql)); }
