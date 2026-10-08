@@ -346,6 +346,9 @@ input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; 
 .ladder-wrap{position:relative}
 .ladder thead th{position:sticky;top:0;z-index:5;background:var(--panel-solid);box-shadow:0 1px 0 var(--line-strong)}
 .ladder thead th:first-child{left:0;z-index:6}
+.matchdot{display:inline-block;width:11px;height:11px;border-radius:50%}
+.matchdot.ok{background:var(--green);box-shadow:0 0 7px var(--green)}
+.matchdot.no{background:var(--red);box-shadow:0 0 7px var(--red)}
 </style>
 </head>
 <body>
@@ -1099,7 +1102,11 @@ function renderARPAWork(A){
   el.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.manualDropped.has(k)?STATE.manualDropped.delete(k):STATE.manualDropped.add(k); applyChurnDrops(); render(); }));
 }
 function renderVelocity(clients,today){
+  // helpers to read tracker fields by normalised brand name
+  const trk=(name)=> (STATE.tracker||[]).find(t=>normBrand(t.brand)===normBrand(name));
+  const recvNames=new Set((STATE.rows||[]).map(r=>normBrand(r.brand)));
   const rowsData=[];
+  const liveDays=[], waitDays=[];   // for the two averages
   for(const c of clients){
     const m1=c.paid.filter(i=>i.mile===1).sort((a,b)=>(a.payDate||a.invDate)-(b.payDate||b.invDate))[0];
     if(!m1||!m1.payDate) continue;
@@ -1108,29 +1115,60 @@ function renderVelocity(clients,today){
     const m2cancelledOnly=!beyondPaid&&m2onlyRows.length>0&&m2onlyRows.every(i=>i.isCancelled);
     const days=Math.floor((today-m1.payDate)/86400000), passed30=days>=30;
     const isDropped=STATE.dropped.has(c.name);
-    let m2label,result,pill;
+    let m2label;
     if(beyondPaid){ const lvl=Math.max(...c.paid.filter(i=>i.mile>=2).map(i=>i.mile));
       let late=""; if(beyondPaid.payDate){ const gap=Math.floor((beyondPaid.payDate-m1.payDate)/86400000); if(gap>30)late=` (late, ${gap}d)`; }
-      m2label=lvl>2?`Yes — reached M${lvl}${late}`:`Yes${late}`; result="Not dropped"; pill="green"; }
+      m2label=lvl>2?`Yes — reached M${lvl}${late}`:`Yes${late}`; }
     else if(m2cancelledOnly){ m2label="No (M2 cancelled)"; } else { m2label="No"; }
-    if(result!=="Not dropped"){ if(!passed30){result="Pending";pill="amber";} else {result="Dropped";pill="red";} }
-    if(isDropped){ result="Dropped (manual)"; pill="red"; }
-    rowsData.push({name:c.name, m1:m1.payDate, passed30, days, m2label, result, pill, canDrop:c.paidLevel>2||beyondPaid, isDropped});
+
+    // ---- Time to first ad (tracker column U), anchored to M1 payment ----
+    const t=trk(c.name);
+    const m1PayAnchor = m1.payDate;   // ALWAYS from the receivables sheet (first paid M1 invoice) — source of truth
+    const firstAd = t? t.firstAd : null;
+    let adCell, adState;
+    if(firstAd && m1PayAnchor){
+      const d=Math.round((firstAd-m1PayAnchor)/86400000);
+      adState="live"; liveDays.push(d);
+      adCell=`<span class="pill green">${d}d to first ad</span><br><span class="hint">live ${F.date(firstAd)}</span>`;
+    } else if(m1PayAnchor){
+      const d=Math.round((today-m1PayAnchor)/86400000);
+      adState="waiting"; waitDays.push(d);
+      adCell=`<span class="pill red">${d}d · no ad yet</span>`;
+    } else { adCell=`<span class="hint">—</span>`; adState="none"; }
+
+    // ---- Receivables Matching: brand present in BOTH receivables and tracker ----
+    const inRecv = recvNames.has(normBrand(c.name));
+    const inTrk = !!t;
+    const matched = inRecv && inTrk;
+    const matchCell = `<span class="matchdot ${matched?'ok':'no'}" title="${matched?'Matched in receivables & tracker':(inTrk?'Not in receivables':'Not in tracker')}"></span>`;
+
+    rowsData.push({name:c.name, m1:m1.payDate, passed30, days, m2label, isDropped, adCell, matchCell});
   }
   rowsData.sort((a,b)=>a.m1-b.m1);
-  const activated=rowsData.length, dropped=rowsData.filter(r=>/Dropped/.test(r.result)).length, pctD=activated?Math.round(dropped/activated*100):0;
+  const activated=rowsData.length;
   const nonRoasPaid=clients.filter(c=>c.hasPaid&&!c.paidLevel).length;
-  document.getElementById("velSummary").innerHTML=`Dropped <span class="num">${dropped}</span> of <span class="num">${activated}</span> activated (${pctD}%). A brand is "activated" once its Milestone-1 invoice is paid. Use "Mark dropped" to flag a churned brand — it leaves Brand Build, and for M3+ de-annualises ARPA.`
+
+  // ---- two average widgets ----
+  const avg=a=> a.length? Math.round(a.reduce((s,v)=>s+v,0)/a.length) : null;
+  const avgLive=avg(liveDays), avgWait=avg(waitDays);
+  const widget=`<div class="bb-head" style="grid-template-columns:repeat(2,1fr);margin-bottom:16px">
+    <div class="bbstat" style="--accent:var(--green)"><div class="l">Avg days to first ad</div><div class="v">${avgLive!=null?avgLive+'<span style="font-size:14px;font-weight:600;color:var(--ink-faint)"> days</span>':'—'}</div><div class="c">${liveDays.length} brand${liveDays.length===1?'':'s'} live</div></div>
+    <div class="bbstat" style="--accent:var(--red)"><div class="l">Avg days waiting · no ad yet</div><div class="v">${avgWait!=null?avgWait+'<span style="font-size:14px;font-weight:600;color:var(--ink-faint)"> days</span>':'—'}</div><div class="c">${waitDays.length} brand${waitDays.length===1?'':'s'} still waiting</div></div>
+  </div>`;
+
+  document.getElementById("velSummary").innerHTML=widget
+    +`<span class="num">${activated}</span> activated brand${activated===1?'':'s'} (Milestone-1 invoice paid). Time to first ad uses the tracker's First Ad Live Date against the M1 payment date. Use "Mark dropped" to flag a churned brand.`
     +(nonRoasPaid?` <span class="hint">${nonRoasPaid} paid brand${nonRoasPaid===1?"":"s"} not shown — no ROAS milestone.</span>`:"");
-  const t=document.getElementById("velTable");
-  t.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>Reached M2+?</th><th>Result</th><th>Flag</th></tr></thead>
+
+  const tbl=document.getElementById("velTable");
+  tbl.innerHTML=`<thead><tr><th>Brand</th><th>M1 paid</th><th>30 days passed?</th><th>Reached M2+?</th><th>Time to first ad</th><th>Receivables Matching</th><th>Flag</th></tr></thead>
     <tbody>${rowsData.map(r=>{
       const drop=`<button class="dropbtn ${r.isDropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.isDropped?'Dropped ✓':'Mark dropped'}</button>`;
       return `<tr class="${r.isDropped?'droppedrow':''}"><td>${r.name}</td><td class="mono">${F.date(r.m1)}</td>
       <td>${r.passed30?'<span class="pill green">Yes</span>':`<span class="pill grey">No (${r.days}d)</span>`}</td>
-      <td>${r.m2label}</td><td><span class="pill ${r.pill}">${r.result}</span></td><td>${drop}</td></tr>`;}).join("")}</tbody>`;
-  if(!rowsData.length) t.innerHTML=`<tbody><tr><td class="hint">No brands with a paid Milestone-1 yet.</td></tr></tbody>`;
-  t.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.manualDropped.has(k)?STATE.manualDropped.delete(k):STATE.manualDropped.add(k); applyChurnDrops(); render(); }));
+      <td>${r.m2label}</td><td>${r.adCell}</td><td style="text-align:center">${r.matchCell}</td><td>${drop}</td></tr>`;}).join("")}</tbody>`;
+  if(!rowsData.length) tbl.innerHTML=`<tbody><tr><td class="hint">No brands with a paid Milestone-1 yet.</td></tr></tbody>`;
+  tbl.querySelectorAll(".dropbtn").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.brand; STATE.manualDropped.has(k)?STATE.manualDropped.delete(k):STATE.manualDropped.add(k); applyChurnDrops(); render(); }));
 }
 
 function renderLedger(clients){
@@ -1375,7 +1413,9 @@ const shortDesc=d=>d.length>46?d.slice(0,44)+"…":d;
 const TKEYS={ brand:["brand name"], tier:["client tier"], status:["status"],
   integration:["dashboard integration"], milestone:["current milestone"],
   daysIntegrate:["days for integration"], intDone:["integration completion date"],
-  timeCampaign:["days from payment to campaign","days from payment to c"] };
+  timeCampaign:["days from payment to campaign","days from payment to c"],
+  firstAd:["first ad live date","first ad live","first ad date"],
+  __PLACEHOLDER__:["first ad live date","first ad live","first ad date"] };
 function buildTMap(h){ const map={}, H=h.map(norm);
   for(const k in TKEYS) for(const c of TKEYS[k]){ const i=H.indexOf(norm(c)); if(i>=0){map[k]=h[i];break;} } return map; }
 
@@ -1390,7 +1430,8 @@ function ingestTracker(data, fields){
     integration: String(get(r,"integration")||"").trim(),
     milestone: parseDaysNum(get(r,"milestone")),
     daysIntegrate: parseDaysNum(get(r,"daysIntegrate")),
-    timeCampaign: parseDaysNum(get(r,"timeCampaign"))
+    timeCampaign: parseDaysNum(get(r,"timeCampaign")),
+    firstAd: parseDate(get(r,"firstAd"))
   })).filter(r=> r.brand && !/^average$/i.test(r.brand));
   STATE.tracker=rows;
   // churned set (normalised)
@@ -1453,9 +1494,9 @@ function renderIntegration(){
   const matched=nb=>receivableBrands.has(nb);
   const sorted=[...t].sort((a,b)=>{ const o={churn:0,hold:1,active:2}; const ra=/churn/i.test(a.status)?0:/hold/i.test(a.status)?1:2, rb=/churn/i.test(b.status)?0:/hold/i.test(b.status)?1:2; return ra-rb || (b.daysIntegrate||0)-(a.daysIntegrate||0); });
   document.getElementById("intgTable").innerHTML=
-    `<thead><tr><th>Brand</th><th>Tier</th><th>Status</th><th>Integration</th><th>Time to integrate</th><th>Milestone</th><th>In receivables?</th></tr></thead>
+    `<thead><tr><th>Brand</th><th>Tier</th><th>Status</th><th>Integration</th><th>Time to integrate</th><th>Milestone</th><th>Receivables Matching</th></tr></thead>
      <tbody>${sorted.map(r=>`<tr><td>${r.brand}</td><td>${r.tier||'<span class="hint">—</span>'}</td><td>${statusPill(r.status)}</td><td>${intPill(r.integration)}</td><td>${speed(r.daysIntegrate)}</td><td>${r.milestone?moonPhases(r.milestone):'<span class="hint">—</span>'}</td>
-       <td>${matched(normBrand(r.brand))?'<span class="pill green">Matched</span>':(/churn/i.test(r.status)?'<span class="pill red">No match</span>':'<span class="hint">—</span>')}</td></tr>`).join("")}</tbody>`;
+       <td style="text-align:center">${`<span class="matchdot ${matched(normBrand(r.brand))?'ok':'no'}" title="${matched(normBrand(r.brand))?'Matched in receivables':'Not found in receivables'}"></span>`}</td></tr>`).join("")}</tbody>`;
 }
 
 
