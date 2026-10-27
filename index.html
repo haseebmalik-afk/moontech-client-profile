@@ -1421,6 +1421,17 @@ function buildTMap(h){ const map={}, H=h.map(norm);
 
 function parseDaysNum(v){ const m=String(v||"").match(/(-?\d+(?:\.\d+)?)/); return m?parseFloat(m[1]):null; }
 
+function skipBannerRows(markers){
+  // Papa beforeFirstChunk: if the real header row (one containing any marker) isn't the first line,
+  // drop the banner/title rows above it. Guards against title banners added atop a published sheet.
+  return function(chunk){
+    const lines=chunk.split(/\r?\n/);
+    const scan=Math.min(lines.length,15);
+    for(let i=0;i<scan;i++){ const low=lines[i].toLowerCase();
+      if(markers.some(m=>low.includes(m))){ return i>0? lines.slice(i).join("\n") : chunk; } }
+    return chunk;
+  };
+}
 function ingestTracker(data, fields){
   const map=buildTMap(fields), get=(r,k)=> map[k]!==undefined? r[map[k]] : "";
   const rows=data.map(r=>({
@@ -1453,6 +1464,7 @@ function applyChurnDrops(){
 function loadTracker(){
   if(!CONFIG.TRACKER_CSV_URL) return;
   Papa.parse(CONFIG.TRACKER_CSV_URL,{download:true,header:true,skipEmptyLines:true,
+    beforeFirstChunk:skipBannerRows(["brand name"]),
     complete:res=>{ if(res.data&&res.data.length){ ingestTracker(res.data,res.meta.fields); if(typeof render==='function') render(); } },
     error:()=>{ /* tracker optional; ignore fetch errors */ } });
 }
@@ -1720,6 +1732,7 @@ function loadFromSheet(isRefresh){ const url=activeUrl(), diag=document.getEleme
   diag.textContent=""; setStatus("sample","Fetching sheet…");
   if(/\/edit/.test(url)||(!/output=csv/.test(url)&&!/tqx=out:csv/.test(url))){ loadSample(true,{kind:"err",msg:"That link isn't a CSV export — showing sample.",detail:"URL must end in output=csv."}); return; }
   Papa.parse(url,{download:true,header:true,skipEmptyLines:true,
+    beforeFirstChunk:skipBannerRows(["client name","invoice"]),
     complete:res=>{ if(!res.data||!res.data.length){ loadSample(true,{kind:"err",msg:"Sheet reached, no rows — showing sample.",detail:"Wrong tab published?"}); return; }
       const heads=(res.meta.fields||[]).map(norm);
       if(!heads.includes(norm("client name"))&&!heads.includes(norm("invoice"))){ loadSample(true,{kind:"err",msg:"Columns don't look right — showing sample.",detail:"Got: "+(res.meta.fields||[]).slice(0,6).join(" | ")}); return; }
