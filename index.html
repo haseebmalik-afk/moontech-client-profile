@@ -614,7 +614,7 @@ const HKEYS={
 function buildMap(h){ const map={}, H=h.map(norm);
   for(const k in HKEYS) for(const c of HKEYS[k]){ const i=H.indexOf(norm(c)); if(i>=0){map[k]=h[i];break;} } return map; }
 
-let STATE={ rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", ccy:"AED", dropped:new Set(), manualDropped:new Set(), tracker:[], churnedBrands:new Set(), unmatchedChurn:[] };
+let STATE={ rows:[], today:new Date(), source:"", months:[], ledgerFilter:"all", ccy:"AED", dropped:new Set(), manualDropped:new Set(), tracker:[], churnedBrands:new Set(), churnDate:new Map(), churnNoDate:new Set(), unmatchedChurn:[] };
 
 /* USD value of one invoice for ARPA: $ Amount (or AED/peg), net of VAT-included, net of refund. */
 function usdNet(i){
@@ -679,7 +679,7 @@ function byClient(rows){
    - M1/M2 dropped: no effect on ARPA (already spend-to-date). Flag only.
    - M3+ dropped: de-annualise -> YTD paid ROAS spend.
    Every invoice value already net of VAT + refund via usdNet(). */
-function computeARPA(clients){
+function computeARPA(clients, asOf){
   const inc=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
   const isAnom=c=>inc.includes(String(c.name).toLowerCase());
   const rowsWork=[];
@@ -687,7 +687,7 @@ function computeARPA(clients){
   const excluded=clients.filter(c=> c.hasPaid && !c.paidLevel && !isAnom(c)).length;
   for(const c of qualifying){
     const roasPaid=c.paid.filter(i=>i.mile);
-    const dropped=STATE.dropped.has(c.name);
+    const dropped=isDroppedAsOf(c.name, asOf);
     let usd, basis, latest=null;
     const relevant=c.paidLevel?roasPaid:c.paid;
     const refundAmt=relevant.reduce((s,i)=>s+(i.refundUsd||(i.refundAed?i.refundAed/CONFIG.AED_PER_USD:0)),0);
@@ -786,9 +786,9 @@ function render(){
   const acq=newBrandAcquisitions(clients), acqSel=acq.filter(a=>inSel(a.date)).length, acqPrevN=acq.filter(a=>inPrev(a.date)).length;
   const acqSince=acq.filter(a=>a.date>=new Date(CONFIG.ACQUISITION_START));
   const asAtRows=rows.filter(r=>{ const d=r.payDate||r.invDate; return !d||d<=periodEnd; });
-  const A=computeARPA(byClient(asAtRows));
+  const A=computeARPA(byClient(asAtRows), periodEnd);
   const prevEnd=isAll?null:P.prevEnd||(()=>{ const e=P.end; return e?new Date(e.getFullYear(), e.getMonth()-(P.yearSel?0:1), e.getDate()):null; })();
-  const APrev=prevEnd?computeARPA(byClient(rows.filter(r=>{ const d=r.payDate||r.invDate; return !d||d<=prevEnd; }))):null;
+  const APrev=prevEnd?computeARPA(byClient(rows.filter(r=>{ const d=r.payDate||r.invDate; return !d||d<=prevEnd; })), prevEnd):null;
   const convWon=clients.filter(c=>{ const fp=c.firstPaidPay||c.firstPaid; const d=fp&&(fp.payDate||fp.invDate); return c.isNew&&c.hasPaid&&d&&d>=new Date(CONFIG.CONVERSION_START)&&d<=periodEnd; }).length;
   const leads=STATE.leads||75, convPct=leads?convWon/leads*100:0;
 
@@ -873,7 +873,7 @@ function renderLadder(clients, today, P){
   if(!isAllP){ keys = keys.filter(k=>{ const [y,m]=k.split("-").map(Number); return inPeriod(new Date(y,m-1,15)); }); }
 
   const rows=ladder.map(c=>{
-    const dropped=STATE.dropped.has(c.name);
+    const dropped=isDroppedAsOf(c.name, pEnd);
     const roasPaid=c.paid.filter(i=>i.mile);
     // net $ per invoice
     const netOf=i=>usdNet(i);
@@ -1200,7 +1200,7 @@ function periodMetrics(sel){
   const acq=newBrandAcquisitions(clients).filter(a=>P.inSel(a.date)).length;
   const rev=rows.filter(r=>r.isPaid && P.inSel(r.payDate)).reduce((s,r)=>s+r.total,0);
   const asAt=rows.filter(r=>{ const d=r.payDate||r.invDate; return !d||d<=P.end; });
-  const A=computeARPA(byClient(asAt));
+  const A=computeARPA(byClient(asAt), P.end);
   return {label:P.label, acq, rev, arpa:A.arpa, arpaN:A.n};
 }
 let CMP_WIRED=false;
@@ -1415,6 +1415,7 @@ const TKEYS={ brand:["brand name"], tier:["client tier"], status:["status"],
   daysIntegrate:["days for integration"], intDone:["integration completion date"],
   timeCampaign:["days from payment to campaign","days from payment to c"],
   firstAd:["first ad live date","first ad live","first ad date"],
+  churnDate:["churn date","churned date","date of churn"],
   __PLACEHOLDER__:["first ad live date","first ad live","first ad date"] };
 function buildTMap(h){ const map={}, H=h.map(norm);
   for(const k in TKEYS) for(const c of TKEYS[k]){ const i=H.indexOf(norm(c)); if(i>=0){map[k]=h[i];break;} } return map; }
@@ -1442,11 +1443,15 @@ function ingestTracker(data, fields){
     milestone: parseDaysNum(get(r,"milestone")),
     daysIntegrate: parseDaysNum(get(r,"daysIntegrate")),
     timeCampaign: parseDaysNum(get(r,"timeCampaign")),
-    firstAd: parseDate(get(r,"firstAd"))
+    firstAd: parseDate(get(r,"firstAd")),
+    churnDate: (()=>{ const d=parseDate(get(r,"churnDate")); return d? new Date(d.getFullYear(), d.getMonth(), 1) : null; })()
   })).filter(r=> r.brand && !/^average$/i.test(r.brand));
   STATE.tracker=rows;
   // churned set (normalised)
   STATE.churnedBrands=new Set(rows.filter(r=>/churn/i.test(r.status)).map(r=>normBrand(r.brand)));
+  // churn effective date per brand (de-annualisation kicks in from this month forward, never back-dated)
+  STATE.churnDate=new Map(); STATE.churnNoDate=new Set();
+  rows.forEach(r=>{ if(/churn/i.test(r.status)){ const nb=normBrand(r.brand); if(r.churnDate) STATE.churnDate.set(nb, r.churnDate); else STATE.churnNoDate.add(nb); } });
   applyChurnDrops();
 }
 
@@ -1459,6 +1464,16 @@ function applyChurnDrops(){
   // rebuild dropped = manual ∪ churn-matched
   STATE.dropped=new Set([...STATE.manualDropped]);
   STATE.rows.forEach(r=>{ if(STATE.churnedBrands.has(normBrand(r.brand))) STATE.dropped.add(r.brand); });
+}
+// Is a brand dropped AS OF a given date? Manual drops always count; a churn de-annualises only
+// from its churn month onward (never back-dated). Missing churn date -> effective as of "today" only.
+function isDroppedAsOf(name, asOf){
+  if(STATE.manualDropped.has(name)) return true;
+  const nb=normBrand(name);
+  if(!(STATE.churnedBrands && STATE.churnedBrands.has(nb))) return false;
+  const d = STATE.churnDate && STATE.churnDate.get(nb);
+  const eff = d || STATE.today || new Date();
+  return asOf ? (eff <= asOf) : true;
 }
 
 function loadTracker(){
@@ -1507,7 +1522,7 @@ function renderIntegration(){
   const sorted=[...t].sort((a,b)=>{ const o={churn:0,hold:1,active:2}; const ra=/churn/i.test(a.status)?0:/hold/i.test(a.status)?1:2, rb=/churn/i.test(b.status)?0:/hold/i.test(b.status)?1:2; return ra-rb || (b.daysIntegrate||0)-(a.daysIntegrate||0); });
   document.getElementById("intgTable").innerHTML=
     `<thead><tr><th>Brand</th><th>Tier</th><th>Status</th><th>Integration</th><th>Time to integrate</th><th>Milestone</th><th>Receivables Matching</th></tr></thead>
-     <tbody>${sorted.map(r=>`<tr><td>${r.brand}</td><td>${r.tier||'<span class="hint">—</span>'}</td><td>${statusPill(r.status)}</td><td>${intPill(r.integration)}</td><td>${speed(r.daysIntegrate)}</td><td>${r.milestone?moonPhases(r.milestone):'<span class="hint">—</span>'}</td>
+     <tbody>${sorted.map(r=>`<tr><td>${r.brand}</td><td>${r.tier||'<span class="hint">—</span>'}</td><td>${statusPill(r.status)}${(/churn/i.test(r.status)&&STATE.churnNoDate&&STATE.churnNoDate.has(normBrand(r.brand)))?' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-left:5px;vertical-align:middle;box-shadow:0 0 5px var(--red)" title="Churn date missing in tracker — not date-adjusted"></span>':''}</td><td>${intPill(r.integration)}</td><td>${speed(r.daysIntegrate)}</td><td>${r.milestone?moonPhases(r.milestone):'<span class="hint">—</span>'}</td>
        <td style="text-align:center">${`<span class="matchdot ${matched(normBrand(r.brand))?'ok':'no'}" title="${matched(normBrand(r.brand))?'Matched in receivables':'Not found in receivables'}"></span>`}</td></tr>`).join("")}</tbody>`;
 }
 
@@ -1541,7 +1556,7 @@ function buildModelRows(){
   const today=STATE.today;
   const inc=(CONFIG.ARPA_INCLUDE_BRANDS||[]).map(s=>s.toLowerCase());
   const clients=byClient(STATE.rows).filter(c=> c.hasPaid && (c.paidLevel || inc.includes(String(c.name).toLowerCase())));
-  const A=computeARPA(byClient(STATE.rows)); const arpaBy=new Map(A.rows.map(r=>[r.name,r.usd]));
+  const A=computeARPA(byClient(STATE.rows), STATE.today); const arpaBy=new Map(A.rows.map(r=>[r.name,r.usd]));
   // monthly columns: Nov-25 .. current month
   const monthKeys=monthKeysFrom("2025-11-01", today);
   const rowsOut=clients.map(c=>{
@@ -1726,7 +1741,7 @@ function setupControls(){
 function setStatus(kind,msg){ document.getElementById("srcDot").className="dot "+kind; document.getElementById("srcMsg").textContent=msg; }
 function ingest(data,fields,src,kind){ const {rows,today}=normalizeRows(data,fields||Object.keys(data[0]||{}));
   if(!rows.length){ setStatus("err","No rows found — check the sheet/tab and headers."); return; }
-  STATE.rows=rows; STATE.today=today; STATE.source=src; setStatus(kind==="live"?"live":"sample",src+" · "+rows.length+" rows"); buildMonthSelector(); render(); }
+  STATE.rows=rows; STATE.today=today; STATE.source=src; setStatus(kind==="live"?"live":"sample",src+" · "+rows.length+" rows"); applyChurnDrops(); buildMonthSelector(); render(); }
 function loadFromSheet(isRefresh){ const url=activeUrl(), diag=document.getElementById("diag");
   if(!url){ loadSample(true,{kind:"sample",msg:"No sheet URL set — showing sample.",detail:"Paste your published CSV link into SHEET_CSV_URL."}); return; }
   diag.textContent=""; setStatus("sample","Fetching sheet…");
