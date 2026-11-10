@@ -1091,7 +1091,7 @@ function renderARPAWork(A){
       const base=r.basis.startsWith("Latest")&&r.latest?usdNet(r.latest):r.usd;
       const drop=`<button class="dropbtn ${r.dropped?'on':''}" data-brand="${(r.name||'').replace(/"/g,'&quot;')}">${r.dropped?(r.churn?'Dropped (churn) ✓':'Dropped ✓'):'Mark dropped'}</button>`;
       const basisClean=r.basis.replace(/\s*·\s*VAT netted/,'');
-      return `<tr class="${r.dropped?'droppedrow':''}"><td>${r.name}</td><td>${r.level?moonPhases(r.level):'<span class="hint">CPL</span>'}</td>
+      return `<tr class="${r.dropped?'droppedrow':''}"><td>${r.name}${(STATE.churnNoDate&&STATE.churnNoDate.has(normBrand(r.name)))?' <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-left:4px;vertical-align:middle;box-shadow:0 0 5px var(--red)" title="Churned — churn date missing in tracker; ARPA not date-adjusted"></span>':''}</td><td>${r.level?moonPhases(r.level):'<span class="hint">CPL</span>'}</td>
       <td class="hint" style="letter-spacing:0;text-transform:none">${basisClean}${r.basis.startsWith("Latest")&&r.latest?` · ${F.date(r.latest.invDate)}`:""}</td>
       <td style="text-align:right" class="mono">${r.refundAmt?('<span style="color:var(--red)">-'+F.usd(r.refundAmt)+'</span>'):'—'}</td>
       <td style="text-align:right" class="mono">${F.usd(base)}</td>
