@@ -886,8 +886,8 @@ function renderLadder(clients, today, P){
       const latest=roasPaid.filter(i=>i.payDate).sort((a,b)=>b.payDate-a.payDate)[0]||roasPaid.filter(i=>i.invDate).sort((a,b)=>b.invDate-a.invDate)[0];
       arpa=(latest?netOf(latest):0)*12; basis="Latest paid × 12"; }
     // ---- monthly grid: PAID invoices by payment month (only in-period when a period is set) ----
-    const monthly={}; let periodSpend=0;
-    roasPaid.forEach(i=>{ if(i.payDate && (isAllP || inPeriod(i.payDate))){ const k=F.ym(i.payDate); monthly[k]=(monthly[k]||0)+netOf(i); periodSpend+=netOf(i); } });
+    const monthly={}; let periodSpend=0, periodActivity=0;
+    roasPaid.forEach(i=>{ if(i.payDate && (isAllP || inPeriod(i.payDate))){ const k=F.ym(i.payDate); monthly[k]=(monthly[k]||0)+netOf(i); periodSpend+=netOf(i); periodActivity++; } });
     const maxMonthly=Math.max(0,...Object.values(monthly));
     // ---- pending: unpaid (unconfirmed, not cancelled) milestone invoices, in their INVOICE month ----
     const pendingInvs=c.invs.filter(i=>!i.isPaid && !i.isCancelled && i.mile && i.invDate);
@@ -906,9 +906,9 @@ function renderLadder(clients, today, P){
     let status=modelStatus(c, dropped, today);
     if(isCplInc && !dropped && status==="Too early" && monthsActive>1){ status = monthsActive<=2?"Watch":"Active"; }
     const totalShown = isAllP ? totalToDate : periodSpend;
-    return {name:c.name, lvl, showPend, startYM, monthsActive, monthly, maxMonthly, pending, totalToDate, totalShown, periodSpend, arpa, basis, isAllP,
+    return {name:c.name, lvl, showPend, startYM, monthsActive, monthly, maxMonthly, pending, totalToDate, totalShown, periodSpend, periodActivity, arpa, basis, isAllP,
       r12:ramp(1,2), r23:ramp(2,3), r34:ramp(3,4), status, dropped, tier:brandTier(c.name)};
-  }).filter(r=> r.isAllP || r.periodSpend>0 );   // hide brands with no spend in the selected period
+  }).filter(r=> r.isAllP || r.periodActivity>0 );   // show brands with a paid ROAS invoice in the period (fully-refunded included; net can be 0)
 
   const stC={Scaling:['green'],Active:['greenlt'],Watch:['amber'],Inactive:['redlt'],Dropped:['grey'],'At risk':['red'],'Too early':['grey']};
   const mo=n=> n==null?'–': n===0?'0mo': n+'mo';
